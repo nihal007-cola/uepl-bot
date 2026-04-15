@@ -4,3 +4,4 @@ qrcode
 gspread
 google-auth
 gunicorn
+google-api-python-client
