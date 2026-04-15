@@ -8,6 +8,8 @@ const http = require('http');
 const QRCode = require('qrcode');
 const sharp = require('sharp');
 const crypto = require('crypto');
+const jsQR = require('jsqr');
+const { createCanvas, loadImage } = require('canvas');
 
 // CONFIG
 const PASSWORD = "1234";
@@ -20,13 +22,14 @@ bot.deleteWebHook({ drop_pending_updates: true });
 
 // MEMORY
 const users = {};
+let ITEM_COUNTER = 1;
 
 // HELPERS
 function isItemCode(text) {
-    return /^UEPL-\d+/.test(text);
+    return /^UEPL\d+$/.test(text);
 }
 
-// 🔐 QR GENERATOR
+// QR GENERATOR
 function generateQR(itemCode) {
     const hash = crypto
         .createHash('sha256')
@@ -37,7 +40,27 @@ function generateQR(itemCode) {
     return `${itemCode}|${hash}`;
 }
 
-// 🖼️ BRAND IMAGE (WHITE CARD + STRIP)
+// QR DETECTOR
+async function detectQR(filePath) {
+    try {
+        const img = await loadImage(filePath);
+        const canvas = createCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d');
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+
+        const code = jsQR(imageData.data, img.width, img.height);
+        if (!code) return null;
+
+        return code.data;
+    } catch (err) {
+        console.log(err);
+        return null;
+    }
+}
+
+// BRAND IMAGE
 async function brandImage(inputPath, itemCode) {
 
     const qrText = generateQR(itemCode);
@@ -76,21 +99,9 @@ async function brandImage(inputPath, itemCode) {
 
     await canvas
         .composite([
-            {
-                input: await base.toBuffer(),
-                top: padding,
-                left: padding
-            },
-            {
-                input: qrBuffer,
-                top: newHeight - bottomStrip + 20,
-                left: newWidth - 180
-            },
-            {
-                input: brandingSVG,
-                top: newHeight - bottomStrip + 30,
-                left: 20
-            }
+            { input: await base.toBuffer(), top: padding, left: padding },
+            { input: qrBuffer, top: newHeight - bottomStrip + 20, left: newWidth - 180 },
+            { input: brandingSVG, top: newHeight - bottomStrip + 30, left: 20 }
         ])
         .jpeg()
         .toFile(outputPath);
@@ -105,18 +116,20 @@ bot.on('message', async (msg) => {
 
     if (!users[chatId]) users[chatId] = { auth: false };
 
-    // 🔐 STRICT AUTH (NO BYPASS)
+    // AUTH
     if (!users[chatId].auth) {
-
         if (text === PASSWORD) {
             users[chatId].auth = true;
-            return bot.sendMessage(chatId, "Access granted. Send image.");
+            return bot.sendMessage(chatId, "Access granted. Send image or item code.");
         }
+        return bot.sendMessage(chatId, "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please.");
+    }
 
-        return bot.sendMessage(
-            chatId,
-            "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please."
-        );
+    // ITEM CODE → ENQUIRY
+    if (text && isItemCode(text)) {
+        users[chatId].pendingCode = text;
+        users[chatId].verify = true;
+        return bot.sendMessage(chatId, "Verification required. Enter password.");
     }
 
     // IMAGE FLOW
@@ -142,22 +155,41 @@ bot.on('message', async (msg) => {
 
             writer.on('finish', async () => {
 
-                const itemCode = `UEPL-${Date.now()}`;
+                const qrData = await detectQR(filePath);
 
-                const finalImage = await brandImage(filePath, itemCode);
+                // NO QR → ENTRY
+                if (!qrData) {
 
-                await bot.sendPhoto(chatId, finalImage, {
-                    caption: `Item saved ✅\nCode: ${itemCode}`
-                });
+                    const itemCode = `UEPL${ITEM_COUNTER++}`;
+                    const finalImage = await brandImage(filePath, itemCode);
 
-                // 🔥 ENTRY PROTOCOL START
-                users[chatId].step = "item_name";
+                    await bot.sendPhoto(chatId, finalImage, {
+                        caption: `Item saved ✅\nCode: ${itemCode}`
+                    });
 
-                await bot.sendMessage(chatId, "Item Name?");
-            });
+                    users[chatId].step = "item_name";
 
-            writer.on('error', async () => {
-                await bot.sendMessage(chatId, "Download error ❌");
+                    return bot.sendMessage(chatId, "Item Name?");
+                }
+
+                // QR FOUND → VALIDATE
+                const [code, hash] = qrData.split("|");
+
+                const expected = crypto
+                    .createHash('sha256')
+                    .update(code + SECRET)
+                    .digest('hex')
+                    .slice(0, 8);
+
+                if (hash !== expected) {
+                    return bot.sendMessage(chatId, "Invalid QR ❌ Treated as new entry.");
+                }
+
+                // VALID QR → ENQUIRY
+                users[chatId].verify = true;
+                users[chatId].pendingCode = code;
+
+                return bot.sendMessage(chatId, "Verification required. Enter password.");
             });
 
         } catch (err) {
@@ -165,11 +197,6 @@ bot.on('message', async (msg) => {
             await bot.sendMessage(chatId, "Processing failed ❌");
         }
         return;
-    }
-
-    // ITEM CODE
-    if (text && isItemCode(text)) {
-        return bot.sendMessage(chatId, `Searching ${text} (next step)`);
     }
 
     return bot.sendMessage(chatId, "Send image or item code.");
