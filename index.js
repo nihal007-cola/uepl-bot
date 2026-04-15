@@ -15,6 +15,7 @@ const { createCanvas, loadImage } = require('canvas');
 const PASSWORD = "1234";
 const PORT = process.env.PORT || 3000;
 const SECRET = "UEPL_SECRET_2026";
+const SESSION_DURATION = 30 * 60 * 1000; // 30 min
 
 // BOT INIT
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
@@ -60,11 +61,11 @@ async function detectQR(filePath) {
     }
 }
 
-// BRAND IMAGE
+// BRAND IMAGE (FIXED QR POSITION + SIZE)
 async function brandImage(inputPath, itemCode) {
 
     const qrText = generateQR(itemCode);
-    const qrBuffer = await QRCode.toBuffer(qrText, { width: 160 });
+    const qrBuffer = await QRCode.toBuffer(qrText, { width: 140 }); // smaller QR
 
     const brandingSVG = Buffer.from(`
         <svg width="600" height="80">
@@ -100,7 +101,11 @@ async function brandImage(inputPath, itemCode) {
     await canvas
         .composite([
             { input: await base.toBuffer(), top: padding, left: padding },
-            { input: qrBuffer, top: newHeight - bottomStrip + 20, left: newWidth - 180 },
+            { 
+                input: qrBuffer, 
+                top: newHeight - bottomStrip + 20, 
+                left: newWidth - 140 - 40 // FIXED: safe margin 
+            },
             { input: brandingSVG, top: newHeight - bottomStrip + 30, left: 20 }
         ])
         .jpeg()
@@ -114,12 +119,20 @@ bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    if (!users[chatId]) users[chatId] = { auth: false };
+    if (!users[chatId]) {
+        users[chatId] = { auth: false, time: 0 };
+    }
+
+    // SESSION EXPIRY
+    if (users[chatId].auth && (Date.now() - users[chatId].time > SESSION_DURATION)) {
+        users[chatId].auth = false;
+    }
 
     // AUTH
     if (!users[chatId].auth) {
         if (text === PASSWORD) {
             users[chatId].auth = true;
+            users[chatId].time = Date.now();
             return bot.sendMessage(chatId, "Access granted. Send image or item code.");
         }
         return bot.sendMessage(chatId, "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please.");
