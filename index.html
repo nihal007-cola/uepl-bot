@@ -174,29 +174,56 @@ input{
 <script>
 
 const PASSWORD="1234";
-let DATA=[];
+
+let DATA=[];        // original data
+let DISPLAY=[];     // filtered view
 
 function login(){
   if(document.getElementById("pass").value===PASSWORD){
     loginBox.style.display="none";
     app.style.display="block";
+    loadData();
   }else alert("GO AWAY BRUV!");
 }
 
 function logout(){location.reload();}
 
+// 🔥 LOAD DATA FROM BACKEND
+function loadData(){
+
+  fetch('/api/items')
+    .then(res => res.json())
+    .then(data => {
+
+      if(!data || data.length===0){
+        DATA=[];
+        DISPLAY=[];
+        render();
+        return;
+      }
+
+      DATA=data;
+      DISPLAY=data;
+
+      render();
+    })
+    .catch(err=>console.log(err));
+}
+
+// 🔥 RENDER TABLE
 function render(){
+
   let body=document.getElementById("dataBody");
   body.innerHTML="";
 
-  if(DATA.length===0){
+  if(DISPLAY.length===0){
     empty.style.display="block";
     return;
   }
 
   empty.style.display="none";
 
-  DATA.forEach(d=>{
+  DISPLAY.forEach(d=>{
     body.innerHTML+=`
     <tr>
       <td>${d.code}</td>
@@ -210,16 +237,24 @@ function render(){
   });
 }
 
+// 🔍 SEARCH (FIXED — NO DATA LOSS)
 function filter(){
   let q=document.getElementById("search").value.toLowerCase();
-  let filtered=DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q));
-  DATA=filtered;
+
+  DISPLAY = DATA.filter(d =>
+    JSON.stringify(d).toLowerCase().includes(q)
+  );
+
   render();
 }
 
+// 📄 PDF
 function exportPDF(){
-  window.print(); // simple MVP
+  window.print();
 }
+
+// 🔥 LIVE AUTO REFRESH
+setInterval(loadData, 5000);
 
 </script>
 
