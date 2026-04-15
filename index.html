@@ -14,29 +14,19 @@ body{
   background:linear-gradient(135deg,#e8f0ff,#d6e4ff);
 }
 
-/* HEADER */
 .header{
-  position:sticky;
-  top:0;
   background:#071a3a;
-  padding:12px;
+  padding:12px 16px;
   display:flex;
-  justify-content:space-between;
   align-items:center;
   color:white;
 }
 
-.brand{font-weight:800;}
+.logo{height:32px;margin-right:10px;}
 
-button{
-  padding:10px;
-  border:none;
-  border-radius:20px;
-  background:#071a3a;
-  color:white;
-}
+.brand-title{font-weight:800;}
+.brand-sub{font-size:11px;opacity:0.7;}
 
-/* SWITCH */
 .switch{
   display:flex;
   gap:10px;
@@ -45,68 +35,91 @@ button{
 
 .switch button{
   flex:1;
-}
-
-/* CARD */
-.card{
-  background:white;
-  margin:10px;
-  padding:16px;
-  border-radius:16px;
-}
-
-/* INPUT */
-input{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border:none;
-  border-radius:12px;
-  background:#f1f5ff;
-}
-
-/* IMAGE */
-.preview{
-  width:100%;
-  border-radius:12px;
-  margin-top:10px;
-}
-
-/* LOG */
-.log{
-  background:#000;
-  color:#0f0;
   padding:10px;
-  height:120px;
-  overflow:auto;
-  font-size:12px;
-  border-radius:10px;
-  margin-top:10px;
+  border:none;
+  border-radius:20px;
+  background:#1fbf6b;
+  color:white;
+  font-weight:600;
 }
 
-/* TABLE */
 .table{
   width:100%;
   background:white;
   border-radius:16px;
-  overflow:hidden;
+  overflow:auto;
+  font-size:12px;
 }
 
 .table th{
   background:#071a3a;
   color:white;
   padding:10px;
-  font-size:12px;
 }
 
 .table td{
+  padding:8px;
+  border-bottom:1px solid #eee;
+}
+
+input{
+  width:100%;
+  padding:6px;
+  border:none;
+  background:#f1f5ff;
+  border-radius:6px;
+}
+
+.preview{width:50px;border-radius:6px;}
+
+.submit{
+  width:100%;
+  margin:10px;
+  padding:12px;
+  border:none;
+  border-radius:20px;
+  background:#e63946;
+  color:white;
+  font-weight:700;
+}
+
+.small-btn{
+  padding:6px 10px;
+  border:none;
+  border-radius:12px;
+  background:#e63946;
+  color:white;
+  font-size:11px;
+}
+
+.log{
+  background:#000;
+  color:#0f0;
   padding:10px;
+  height:120px;
+  overflow:auto;
+  margin:10px;
+  border-radius:10px;
   font-size:12px;
 }
 
-img.thumb{
-  height:40px;
-  border-radius:6px;
+/* REPORT TOOLS */
+.tools{
+  display:flex;
+  gap:10px;
+  padding:10px;
+}
+
+.tools input{
+  flex:1;
+}
+
+.tools button{
+  background:#071a3a;
+  color:white;
+  border:none;
+  border-radius:10px;
+  padding:8px 12px;
 }
 
 </style>
@@ -115,7 +128,11 @@ img.thumb{
 <body>
 
 <div class="header">
-  <div class="brand">UEPL System</div>
+  <img src="/logo.png" class="logo">
+  <div>
+    <div class="brand-title">UEPL System</div>
+    <div class="brand-sub">Powered by Offices of Nawnit Nihal</div>
+  </div>
 </div>
 
 <div class="switch">
@@ -126,51 +143,53 @@ img.thumb{
 <!-- ENTRY -->
 <div id="entry">
 
-  <div class="card">
+<table class="table">
+<thead>
+<tr>
+<th>Img</th>
+<th>Item</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="entryBody"></tbody>
+</table>
 
-    <input type="file" id="image">
+<button class="submit" onclick="submitAll()">🚀 Submit All</button>
 
-    <img id="preview" class="preview">
-
-    <input id="item" placeholder="Item No">
-    <input id="count" placeholder="Count">
-    <input id="construction" placeholder="Construction">
-    <input id="composition" placeholder="Composition">
-    <input id="weight" placeholder="Weight">
-    <input id="width" placeholder="Width">
-    <input id="availability" placeholder="Availability">
-
-    <button onclick="submitData()">Submit</button>
-
-    <div class="log" id="log"></div>
-
-  </div>
+<div class="log" id="log"></div>
 
 </div>
 
 <!-- REPORT -->
 <div id="report" style="display:none">
 
-  <div class="card">
-    <button onclick="loadData()">Refresh</button>
-  </div>
+<div class="tools">
+  <input id="search" placeholder="Search..." onkeyup="filter()">
+  <button onclick="printTable()">Print</button>
+  <button onclick="exportCSV()">Export</button>
+</div>
 
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Item No</th>
-        <th>Count</th>
-        <th>Construction</th>
-        <th>Composition</th>
-        <th>Weight</th>
-        <th>Width</th>
-        <th>Availability</th>
-        <th>Image</th>
-        <th>Timestamp</th>
-      </tr>
-    </thead>
-    <tbody id="dataBody"></tbody>
-  </table>
+<table class="table" id="reportTable">
+<thead>
+<tr>
+<th>Item</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+<th>Image</th>
+</tr>
+</thead>
+<tbody id="dataBody"></tbody>
+</table>
 
 </div>
 
@@ -178,134 +197,162 @@ img.thumb{
 
 const API = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-let imageData = "";
+let rows = [];
 let DATA = [];
 
-/* MODULE SWITCH */
-function showEntry(){
-  entry.style.display="block";
-  report.style.display="none";
-}
+/* INIT */
+function init(){
+  let body = document.getElementById("entryBody");
 
-function showReport(){
-  entry.style.display="none";
-  report.style.display="block";
-  loadData();
-}
+  for(let i=0;i<10;i++){
+    rows[i] = { image:"" };
 
-/* LOG */
-function log(msg){
-  const el = document.getElementById("log");
-  const time = new Date().toLocaleTimeString();
-  el.innerHTML += `[${time}] ${msg}<br>`;
-  el.scrollTop = el.scrollHeight;
+    body.innerHTML += `
+    <tr>
+      <td>
+        <input type="file" onchange="loadImg(event,${i})">
+        <img id="img${i}" class="preview">
+      </td>
+      <td><input id="item${i}"></td>
+      <td><input id="count${i}"></td>
+      <td><input id="construction${i}"></td>
+      <td><input id="composition${i}"></td>
+      <td><input id="weight${i}"></td>
+      <td><input id="width${i}"></td>
+      <td><input id="availability${i}"></td>
+      <td><button class="small-btn" onclick="submitOne(${i})">Submit</button></td>
+    </tr>`;
+  }
 }
+init();
 
-/* IMAGE LOAD */
-document.getElementById("image").onchange = function(e){
+/* IMAGE */
+function loadImg(e,i){
   const file = e.target.files[0];
-
   const reader = new FileReader();
-  reader.onload = function(evt){
-    imageData = evt.target.result;
-    document.getElementById("preview").src = imageData;
-    log("Image loaded");
+  reader.onload = e=>{
+    rows[i].image = e.target.result;
+    document.getElementById("img"+i).src = rows[i].image;
   };
   reader.readAsDataURL(file);
 }
 
-/* SUBMIT */
-async function submitData(){
-
-  const item = document.getElementById("item").value;
-
-  if(!item || !imageData){
-    log("Missing item or image");
-    return;
-  }
-
-  log("Processing image...");
-
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-
-  const img = new Image();
-  img.src = imageData;
-
-  img.onload = async function(){
-
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    ctx.drawImage(img,0,0);
-
-    // branding strip
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.fillRect(0, canvas.height-60, canvas.width, 60);
-
-    ctx.fillStyle = "white";
-    ctx.font = "20px Inter";
-
-    ctx.fillText("Offices of Nawnit Nihal", 10, canvas.height-25);
-    ctx.fillText(item, canvas.width-200, canvas.height-25);
-
-    const finalImage = canvas.toDataURL("image/jpeg");
-
-    log("Uploading...");
-
-    const res = await fetch(API, {
-      method:"POST",
-      body: JSON.stringify({
-        action:"add",
-        item,
-        count:count.value,
-        construction:construction.value,
-        composition:composition.value,
-        weight:weight.value,
-        width:width.value,
-        availability:availability.value,
-        image: finalImage
-      })
-    });
-
-    const data = await res.json();
-
-    log("Saved successfully");
-
-  }
+/* LOG */
+function log(msg){
+  let el=document.getElementById("log");
+  el.innerHTML+=msg+"<br>";
 }
 
-/* LOAD REPORT */
-function loadData(){
+/* PROCESS */
+async function processRow(i){
+  let item=document.getElementById("item"+i).value;
+  if(!item||!rows[i].image) return;
 
-  fetch(API + "?action=get")
-    .then(res=>res.json())
-    .then(data=>{
-      DATA = data;
-      render();
-    });
+  let img=new Image();
+  img.src=rows[i].image;
+  await new Promise(r=>img.onload=r);
+
+  let canvas=document.createElement("canvas");
+  let ctx=canvas.getContext("2d");
+
+  canvas.width=img.width;
+  canvas.height=img.height;
+
+  ctx.drawImage(img,0,0);
+
+  ctx.fillStyle="black";
+  ctx.fillRect(0,canvas.height-60,canvas.width,60);
+
+  ctx.fillStyle="white";
+  ctx.fillText("Offices of Nawnit Nihal",10,canvas.height-20);
+  ctx.fillText(item,canvas.width-150,canvas.height-20);
+
+  let final=canvas.toDataURL("image/jpeg");
+
+  await fetch(API,{
+    method:"POST",
+    body:JSON.stringify({
+      action:"add",
+      item,
+      count:count0?.value,
+      construction:construction0?.value,
+      composition:composition0?.value,
+      weight:weight0?.value,
+      width:width0?.value,
+      availability:availability0?.value,
+      image:final
+    })
+  });
+
+  log("Saved "+item);
 }
 
-/* RENDER */
-function render(){
+async function submitOne(i){await processRow(i);}
 
+async function submitAll(){
+  for(let i=0;i<10;i++){await processRow(i);}
+}
+
+/* REPORT */
+function showReport(){
+  entry.style.display="none";
+  report.style.display="block";
+
+  fetch(API+"?action=get")
+  .then(r=>r.json())
+  .then(d=>{
+    DATA=d;
+    render(DATA);
+  });
+}
+
+function render(data){
   let body=document.getElementById("dataBody");
   body.innerHTML="";
 
-  DATA.forEach(d=>{
+  data.forEach(d=>{
     body.innerHTML+=`
     <tr>
-      <td>${d.item || ''}</td>
-      <td>${d.count || ''}</td>
-      <td>${d.construction || ''}</td>
-      <td>${d.composition || ''}</td>
-      <td>${d.weight || ''}</td>
-      <td>${d.width || ''}</td>
-      <td>${d.availability || ''}</td>
-      <td>${d.image ? `<a href="${d.image}" target="_blank">View</a>` : ''}</td>
-      <td>${d.timestamp || ''}</td>
+    <td>${d.item||""}</td>
+    <td>${d.count||""}</td>
+    <td>${d.construction||""}</td>
+    <td>${d.composition||""}</td>
+    <td>${d.weight||""}</td>
+    <td>${d.width||""}</td>
+    <td>${d.availability||""}</td>
+    <td><a href="${d.image}" target="_blank">View</a></td>
     </tr>`;
   });
+}
+
+/* SEARCH */
+function filter(){
+  let q=search.value.toLowerCase();
+  render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
+}
+
+/* PRINT */
+function printTable(){
+  window.print();
+}
+
+/* EXPORT */
+function exportCSV(){
+  let csv="Item,Count,Construction,Composition,Weight,Width,Availability\n";
+  DATA.forEach(d=>{
+    csv+=`${d.item},${d.count},${d.construction},${d.composition},${d.weight},${d.width},${d.availability}\n`;
+  });
+
+  let blob=new Blob([csv]);
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="report.csv";
+  a.click();
+}
+
+function showEntry(){
+  report.style.display="none";
+  entry.style.display="block";
 }
 
 </script>
