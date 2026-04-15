@@ -178,7 +178,6 @@ async function submitAll(){
 
     let final=c.toDataURL("image/jpeg",0.6);
 
-    // 🔥 FINAL WORKING METHOD (NO CORS EVER)
     let url = API + "?" + new URLSearchParams({
       action:"add",
       item:item,
@@ -191,8 +190,8 @@ async function submitAll(){
       image:final
     });
 
-    let imgPing = new Image();
-    imgPing.src = url;
+    // 🔥 SILENT REQUEST (NO CORB / NO CORS)
+    navigator.sendBeacon(url);
 
   }
 
