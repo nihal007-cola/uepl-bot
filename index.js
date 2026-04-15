@@ -18,9 +18,21 @@ const SECRET = "UEPL_SECRET_2026";
 const SESSION_DURATION = 30 * 60 * 1000;
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-// INIT
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-bot.deleteWebHook({ drop_pending_updates: true });
+// 🔥 SAFE BOT INIT (FIXED)
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+  polling: { autoStart: false }
+});
+
+// 🔥 CLEAN START (NO CONFLICT)
+(async () => {
+  try {
+    await bot.deleteWebHook({ drop_pending_updates: true });
+    await bot.startPolling();
+    console.log("✅ Bot started safely");
+  } catch (err) {
+    console.log("Polling error handled:", err.message);
+  }
+})();
 
 const users = {};
 let ITEM_COUNTER = 1;
@@ -122,7 +134,6 @@ bot.on('message', async (msg) => {
             user.auth = true;
             user.time = Date.now();
 
-            // 🔥 ENQUIRY FETCH
             if (user.verify) {
                 user.verify = false;
 
@@ -194,7 +205,6 @@ Code: ${d.code}`);
 
             const itemCode = `UEPL${ITEM_COUNTER++}`;
 
-            // 🔥 SAVE TO GOOGLE SHEET
             await axios.post(SHEET_URL, {
                 code: itemCode,
                 name: user.name,
@@ -283,4 +293,6 @@ const server = http.createServer(async (req, res) => {
     res.end();
 });
 
-server.listen(PORT);
+server.listen(PORT, () => {
+  console.log("🌐 Server running on port", PORT);
+});
