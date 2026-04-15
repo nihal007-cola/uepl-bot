@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UEPL Inventory</title>
+<title>UEPL System</title>
 
-<link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
@@ -20,79 +19,69 @@ body{
   position:sticky;
   top:0;
   background:#071a3a;
-  padding:12px 24px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-.left{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  color:white;
-}
-
-.logo{height:34px;}
-
-.brand-title{font-weight:800;}
-.brand-sub{font-size:11px;opacity:0.7;}
-
-.right button{
-  padding:8px 14px;
-  border:none;
-  border-radius:20px;
-  background:#1fbf6b;
-  color:white;
-  cursor:pointer;
-}
-
-/* LOGIN */
-.login{
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:80vh;
-}
-
-.box{
-  background:white;
-  padding:30px;
-  border-radius:20px;
-}
-
-input{
-  width:100%;
   padding:12px;
-  margin:10px 0;
-  border-radius:20px;
-  border:none;
-  background:#f1f5ff;
-}
-
-/* APP */
-.container{padding:20px;display:none;}
-
-.topbar{
   display:flex;
   justify-content:space-between;
-  margin-bottom:15px;
+  align-items:center;
+  color:white;
 }
 
-.search{
+.brand{font-weight:800;}
+
+button{
   padding:10px;
-  border-radius:20px;
-  border:none;
-  width:200px;
-}
-
-.btn{
-  padding:10px 16px;
   border:none;
   border-radius:20px;
   background:#071a3a;
   color:white;
-  cursor:pointer;
+}
+
+/* SWITCH */
+.switch{
+  display:flex;
+  gap:10px;
+  padding:10px;
+}
+
+.switch button{
+  flex:1;
+}
+
+/* CARD */
+.card{
+  background:white;
+  margin:10px;
+  padding:16px;
+  border-radius:16px;
+}
+
+/* INPUT */
+input{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border:none;
+  border-radius:12px;
+  background:#f1f5ff;
+}
+
+/* IMAGE */
+.preview{
+  width:100%;
+  border-radius:12px;
+  margin-top:10px;
+}
+
+/* LOG */
+.log{
+  background:#000;
+  color:#0f0;
+  padding:10px;
+  height:120px;
+  overflow:auto;
+  font-size:12px;
+  border-radius:10px;
+  margin-top:10px;
 }
 
 /* TABLE */
@@ -106,17 +95,18 @@ input{
 .table th{
   background:#071a3a;
   color:white;
-  padding:12px;
+  padding:10px;
+  font-size:12px;
 }
 
 .table td{
-  padding:12px;
-  border-bottom:1px solid #eee;
+  padding:10px;
+  font-size:12px;
 }
 
-.empty{
-  text-align:center;
-  padding:40px;
+img.thumb{
+  height:40px;
+  border-radius:6px;
 }
 
 </style>
@@ -125,136 +115,198 @@ input{
 <body>
 
 <div class="header">
-  <div class="left">
-    <img src="/logo.png" class="logo">
-    <div>
-      <div class="brand-title">UEPL Inventory</div>
-      <div class="brand-sub">Powered by Offices of Nawnit Nihal</div>
-    </div>
-  </div>
-  <div class="right">
-    <button onclick="logout()">Logout</button>
-  </div>
+  <div class="brand">UEPL System</div>
 </div>
 
-<div class="login" id="loginBox">
-  <div class="box">
-    <h3>Password</h3>
-    <input id="pass">
-    <button class="btn" onclick="login()">Enter</button>
-  </div>
+<div class="switch">
+  <button onclick="showEntry()">Entry</button>
+  <button onclick="showReport()">Report</button>
 </div>
 
-<div class="container" id="app">
+<!-- ENTRY -->
+<div id="entry">
 
-  <div class="topbar">
-    <input class="search" id="search" placeholder="Search..." onkeyup="filter()">
-    <button class="btn" onclick="exportPDF()">Export PDF</button>
+  <div class="card">
+
+    <input type="file" id="image">
+
+    <img id="preview" class="preview">
+
+    <input id="item" placeholder="Item No">
+    <input id="count" placeholder="Count">
+    <input id="construction" placeholder="Construction">
+    <input id="composition" placeholder="Composition">
+    <input id="weight" placeholder="Weight">
+    <input id="width" placeholder="Width">
+    <input id="availability" placeholder="Availability">
+
+    <button onclick="submitData()">Submit</button>
+
+    <div class="log" id="log"></div>
+
+  </div>
+
+</div>
+
+<!-- REPORT -->
+<div id="report" style="display:none">
+
+  <div class="card">
+    <button onclick="loadData()">Refresh</button>
   </div>
 
   <table class="table">
     <thead>
       <tr>
-        <th>Item Code</th>
-        <th>Item Name</th>
+        <th>Item No</th>
         <th>Count</th>
-        <th>GSM</th>
-        <th>Supplier</th>
-        <th>Rate</th>
-        <th>Stock</th>
+        <th>Construction</th>
+        <th>Composition</th>
+        <th>Weight</th>
+        <th>Width</th>
+        <th>Availability</th>
+        <th>Image</th>
+        <th>Timestamp</th>
       </tr>
     </thead>
     <tbody id="dataBody"></tbody>
   </table>
 
-  <div class="empty" id="empty">No data</div>
-
 </div>
 
 <script>
 
-const PASSWORD="1234";
+const API = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-let DATA=[];        // original data
-let DISPLAY=[];     // filtered view
+let imageData = "";
+let DATA = [];
 
-function login(){
-  if(document.getElementById("pass").value===PASSWORD){
-    loginBox.style.display="none";
-    app.style.display="block";
-    loadData();
-  }else alert("GO AWAY BRUV!");
+/* MODULE SWITCH */
+function showEntry(){
+  entry.style.display="block";
+  report.style.display="none";
 }
 
-function logout(){location.reload();}
+function showReport(){
+  entry.style.display="none";
+  report.style.display="block";
+  loadData();
+}
 
-// 🔥 LOAD DATA FROM BACKEND
+/* LOG */
+function log(msg){
+  const el = document.getElementById("log");
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `[${time}] ${msg}<br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+/* IMAGE LOAD */
+document.getElementById("image").onchange = function(e){
+  const file = e.target.files[0];
+
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    imageData = evt.target.result;
+    document.getElementById("preview").src = imageData;
+    log("Image loaded");
+  };
+  reader.readAsDataURL(file);
+}
+
+/* SUBMIT */
+async function submitData(){
+
+  const item = document.getElementById("item").value;
+
+  if(!item || !imageData){
+    log("Missing item or image");
+    return;
+  }
+
+  log("Processing image...");
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const img = new Image();
+  img.src = imageData;
+
+  img.onload = async function(){
+
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    ctx.drawImage(img,0,0);
+
+    // branding strip
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, canvas.height-60, canvas.width, 60);
+
+    ctx.fillStyle = "white";
+    ctx.font = "20px Inter";
+
+    ctx.fillText("Offices of Nawnit Nihal", 10, canvas.height-25);
+    ctx.fillText(item, canvas.width-200, canvas.height-25);
+
+    const finalImage = canvas.toDataURL("image/jpeg");
+
+    log("Uploading...");
+
+    const res = await fetch(API, {
+      method:"POST",
+      body: JSON.stringify({
+        action:"add",
+        item,
+        count:count.value,
+        construction:construction.value,
+        composition:composition.value,
+        weight:weight.value,
+        width:width.value,
+        availability:availability.value,
+        image: finalImage
+      })
+    });
+
+    const data = await res.json();
+
+    log("Saved successfully");
+
+  }
+}
+
+/* LOAD REPORT */
 function loadData(){
 
-  fetch('/api/items')
-    .then(res => res.json())
-    .then(data => {
-
-      if(!data || data.length===0){
-        DATA=[];
-        DISPLAY=[];
-        render();
-        return;
-      }
-
-      DATA=data;
-      DISPLAY=data;
-
+  fetch(API + "?action=get")
+    .then(res=>res.json())
+    .then(data=>{
+      DATA = data;
       render();
-    })
-    .catch(err=>console.log(err));
+    });
 }
 
-// 🔥 RENDER TABLE
+/* RENDER */
 function render(){
 
   let body=document.getElementById("dataBody");
   body.innerHTML="";
 
-  if(DISPLAY.length===0){
-    empty.style.display="block";
-    return;
-  }
-
-  empty.style.display="none";
-
-  DISPLAY.forEach(d=>{
+  DATA.forEach(d=>{
     body.innerHTML+=`
     <tr>
-      <td>${d.code}</td>
-      <td>${d.name}</td>
-      <td>${d.count}</td>
-      <td>${d.gsm}</td>
-      <td>${d.supplier}</td>
-      <td>${d.rate}</td>
-      <td>${d.stock}</td>
+      <td>${d.item || ''}</td>
+      <td>${d.count || ''}</td>
+      <td>${d.construction || ''}</td>
+      <td>${d.composition || ''}</td>
+      <td>${d.weight || ''}</td>
+      <td>${d.width || ''}</td>
+      <td>${d.availability || ''}</td>
+      <td>${d.image ? `<a href="${d.image}" target="_blank">View</a>` : ''}</td>
+      <td>${d.timestamp || ''}</td>
     </tr>`;
   });
 }
-
-// 🔍 SEARCH (FIXED — NO DATA LOSS)
-function filter(){
-  let q=document.getElementById("search").value.toLowerCase();
-
-  DISPLAY = DATA.filter(d =>
-    JSON.stringify(d).toLowerCase().includes(q)
-  );
-
-  render();
-}
-
-// 📄 PDF
-function exportPDF(){
-  window.print();
-}
-
-// 🔥 LIVE AUTO REFRESH
-setInterval(loadData, 5000);
 
 </script>
 
