@@ -103,7 +103,7 @@ bot.on('message', async (msg) => {
     const text = msg.text;
 
     if (!users[chatId]) {
-        users[chatId] = { auth: false, time: 0 };
+        users[chatId] = { auth: false, time: 0, verify: false };
     }
 
     const user = users[chatId];
@@ -113,13 +113,27 @@ bot.on('message', async (msg) => {
         user.auth = false;
     }
 
-    // 🔐 AUTH
-    if (!user.auth) {
+    // 🔐 AUTH + VERIFY HANDLER
+    if (!user.auth || user.verify) {
+
         if (text === PASSWORD) {
+
             user.auth = true;
             user.time = Date.now();
+
+            // 🔥 COMPLETE ENQUIRY
+            if (user.verify) {
+                user.verify = false;
+
+                return bot.sendMessage(
+                    chatId,
+                    `ENQUIRY RESULT (MVP)\nCode: ${user.pendingCode}`
+                );
+            }
+
             return bot.sendMessage(chatId, "Access granted. Send image or item code.");
         }
+
         return bot.sendMessage(chatId, "GO AWAY BRUV! this is for UEPL use only.");
     }
 
@@ -178,7 +192,7 @@ bot.on('message', async (msg) => {
     if (text && isItemCode(text)) {
         user.verify = true;
         user.pendingCode = text;
-        return bot.sendMessage(chatId, "Enter password for verification.");
+        return bot.sendMessage(chatId, "Verification required. Enter password.");
     }
 
     // 📸 IMAGE
@@ -207,6 +221,7 @@ bot.on('message', async (msg) => {
 
             // ✅ QR → ENQUIRY
             user.verify = true;
+            user.pendingCode = "QR_ITEM";
             return bot.sendMessage(chatId, "Verification required. Enter password.");
         });
 
