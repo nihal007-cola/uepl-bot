@@ -34,7 +34,7 @@ bot.on('message', async (msg) => {
         } else {
             return bot.sendMessage(
                 chatId,
-                "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please."
+                "Welcome. I am UEPL BOT, module of ONNwork.\nPassword please."
             );
         }
     }
