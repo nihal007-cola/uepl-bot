@@ -14,7 +14,7 @@ body{
   background:linear-gradient(135deg,#e8f0ff,#d6e4ff);
 }
 
-/* HEADER (UNCHANGED) */
+/* HEADER */
 .header{
   position:sticky;
   top:0;
@@ -31,12 +31,26 @@ body{
   align-items:center;
   gap:12px;
   color:white;
-  font-size:20px;
-  font-weight:800;
 }
 
 .logo{
   height:34px;
+}
+
+/* BRAND TEXT */
+.brand{
+  display:flex;
+  flex-direction:column;
+}
+
+.brand-title{
+  font-size:18px;
+  font-weight:800;
+}
+
+.brand-sub{
+  font-size:11px;
+  opacity:0.7;
 }
 
 .right button{
@@ -112,6 +126,13 @@ input{
   border-bottom:1px solid #eee;
 }
 
+/* EMPTY STATE */
+.empty{
+  text-align:center;
+  padding:40px;
+  color:#555;
+}
+
 </style>
 </head>
 
@@ -121,7 +142,10 @@ input{
 <div class="header">
   <div class="left">
     <img src="logo.png" class="logo">
-    UEPL Inventory
+    <div class="brand">
+      <div class="brand-title">UEPL Inventory</div>
+      <div class="brand-sub">Powered by Offices of Nawnit Nihal</div>
+    </div>
   </div>
 
   <div class="right">
@@ -156,6 +180,10 @@ input{
     <tbody id="dataBody"></tbody>
   </table>
 
+  <div class="empty" id="emptyState">
+    No items available yet.
+  </div>
+
 </div>
 
 <script>
@@ -179,44 +207,15 @@ function logout(){
   location.reload();
 }
 
-/* 🔥 MOCK DATA (replace with API later) */
+/* 🚫 NO SAMPLE DATA — CLEAN */
 function loadData(){
-
-  const data = [
-    {
-      name:"Cotton Twill",
-      count:"40x40 / 132x72",
-      gsm:"180",
-      supplier:"Arvind",
-      rate:"₹110",
-      stock:"500"
-    },
-    {
-      name:"Denim",
-      count:"10x10",
-      gsm:"300",
-      supplier:"Nandan",
-      rate:"₹220",
-      stock:"200"
-    }
-  ];
-
   const body = document.getElementById("dataBody");
+  const empty = document.getElementById("emptyState");
+
   body.innerHTML = "";
 
-  data.forEach(item=>{
-    let row = `
-      <tr>
-        <td>${item.name}</td>
-        <td>${item.count}</td>
-        <td>${item.gsm}</td>
-        <td>${item.supplier}</td>
-        <td>${item.rate}</td>
-        <td>${item.stock}</td>
-      </tr>
-    `;
-    body.innerHTML += row;
-  });
+  // currently empty — will connect to backend next
+  empty.style.display = "block";
 }
 
 </script>
