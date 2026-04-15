@@ -19,7 +19,6 @@
 
 body{margin:0;font-family:Inter;background:var(--bg);}
 
-/* HEADER */
 header{
   background:linear-gradient(135deg,var(--blue),var(--blue2));
   color:white;
@@ -35,7 +34,6 @@ header img{height:30px;}
 .title{font-weight:800;}
 .sub{font-size:11px;color:#cfe0ff;}
 
-/* TABS */
 .tabs{display:flex;gap:10px;padding:10px;}
 .tab{
   flex:1;
@@ -48,7 +46,6 @@ header img{height:30px;}
 }
 .tab.active{background:var(--blue);color:white;}
 
-/* PANEL */
 .panel{
   margin:10px;
   background:white;
@@ -57,7 +54,6 @@ header img{height:30px;}
   padding:10px;
 }
 
-/* TABLE */
 .table{
   width:100%;
   border-collapse:collapse;
@@ -82,7 +78,6 @@ input{
   border:1px solid var(--border);
 }
 
-/* BUTTON */
 .btn{
   width:100%;
   margin-top:10px;
@@ -94,7 +89,6 @@ input{
 .submit{background:var(--red);color:white;}
 .green{background:var(--green);color:white;}
 
-/* TOOLS */
 .tools{display:flex;gap:10px;margin-bottom:10px;}
 .tools input{flex:1;}
 
@@ -123,7 +117,6 @@ input{
 <div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
 </div>
 
-<!-- ENTRY -->
 <div id="entry" class="panel">
 
 <table class="table">
@@ -146,7 +139,6 @@ input{
 
 </div>
 
-<!-- REPORT -->
 <div id="report" class="panel hide">
 
 <div class="tools">
@@ -180,7 +172,6 @@ const API="https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXv
 let rows=[];
 let DATA=[];
 
-/* INIT */
 function init(){
   let body=document.getElementById("entryBody");
 
@@ -202,7 +193,6 @@ function init(){
 }
 init();
 
-/* SWITCH */
 function showEntry(){
   entry.classList.remove("hide");
   report.classList.add("hide");
@@ -218,14 +208,12 @@ function showReport(){
   loadData();
 }
 
-/* IMAGE */
 function loadImg(e,i){
   let reader=new FileReader();
   reader.onload=ev=>rows[i].image=ev.target.result;
   reader.readAsDataURL(e.target.files[0]);
 }
 
-/* SUBMIT */
 async function submitAll(){
 
   for(let i=0;i<10;i++){
@@ -251,22 +239,24 @@ async function submitAll(){
     ctx.fillStyle="white";
     ctx.fillText("Offices of Nawnit Nihal",10,c.height-20);
 
-    let final=c.toDataURL("image/jpeg",0.6); // 🔥 compressed
+    let final=c.toDataURL("image/jpeg",0.6);
+
+    // ✅ FIXED FETCH (CORS SAFE)
+    let formData = new URLSearchParams();
+
+    formData.append("action","add");
+    formData.append("item", item);
+    formData.append("count", document.getElementById("count"+i).value);
+    formData.append("construction", document.getElementById("construction"+i).value);
+    formData.append("composition", document.getElementById("composition"+i).value);
+    formData.append("weight", document.getElementById("weight"+i).value);
+    formData.append("width", document.getElementById("width"+i).value);
+    formData.append("availability", document.getElementById("availability"+i).value);
+    formData.append("image", final);
 
     await fetch(API,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        action:"add",
-        item,
-        count:document.getElementById("count"+i).value,
-        construction:document.getElementById("construction"+i).value,
-        composition:document.getElementById("composition"+i).value,
-        weight:document.getElementById("weight"+i).value,
-        width:document.getElementById("width"+i).value,
-        availability:document.getElementById("availability"+i).value,
-        image:final
-      })
+      body: formData
     });
 
   }
@@ -274,7 +264,6 @@ async function submitAll(){
   alert("Upload done");
 }
 
-/* REPORT */
 function loadData(){
   fetch(API+"?action=get")
   .then(r=>r.json())
@@ -303,16 +292,13 @@ function render(data){
   });
 }
 
-/* SEARCH */
 function filter(){
   let q=search.value.toLowerCase();
   render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
 }
 
-/* PRINT */
 function printTable(){window.print();}
 
-/* EXPORT */
 function exportCSV(){
   let csv="Item,Count,Construction\n";
   DATA.forEach(d=>{
