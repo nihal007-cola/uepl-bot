@@ -3,13 +3,16 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+const http = require('http');
 
 // ===== CONFIG =====
 const PASSWORD = "1234";
+const PORT = process.env.PORT || 3000;
 
-// ===== MEMORY STORE (MVP) =====
+// ===== INIT BOT =====
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+
+// ===== MEMORY STORE =====
 const users = {};
 
 // ===== HELPER =====
@@ -17,7 +20,7 @@ function isItemCode(text) {
     return /^UEPL-\d+/.test(text);
 }
 
-// ===== MAIN HANDLER =====
+// ===== TELEGRAM LOGIC =====
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
@@ -26,7 +29,7 @@ bot.on('message', async (msg) => {
         users[chatId] = { auth: false };
     }
 
-    // ===== AUTH FLOW =====
+    // ===== AUTH =====
     if (!users[chatId].auth) {
         if (text === PASSWORD) {
             users[chatId].auth = true;
@@ -34,7 +37,7 @@ bot.on('message', async (msg) => {
         } else {
             return bot.sendMessage(
                 chatId,
-                "Welcome. I am UEPL BOT, module of ONNwork.\nPassword please."
+                "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please."
             );
         }
     }
@@ -44,19 +47,15 @@ bot.on('message', async (msg) => {
         try {
             await bot.sendMessage(chatId, "Processing image...");
 
-            // Get highest quality image
             const photo = msg.photo[msg.photo.length - 1];
             const fileId = photo.file_id;
 
-            // Get file path
             const file = await bot.getFile(fileId);
             const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
 
-            // Create filename
             const fileName = `image_${Date.now()}.jpg`;
             const filePath = path.join(__dirname, fileName);
 
-            // Download image
             const response = await axios({
                 url: fileUrl,
                 method: 'GET',
@@ -68,9 +67,7 @@ bot.on('message', async (msg) => {
 
             writer.on('finish', async () => {
                 await bot.sendMessage(chatId, "Image downloaded ✅");
-
-                // 👉 NEXT STEP PLACEHOLDER (QR DETECTION)
-                await bot.sendMessage(chatId, "Next: QR detection (coming in next step)");
+                await bot.sendMessage(chatId, "Next: QR detection (coming next)");
             });
 
             writer.on('error', async () => {
@@ -85,11 +82,40 @@ bot.on('message', async (msg) => {
         return;
     }
 
-    // ===== ITEM CODE SEARCH =====
+    // ===== ITEM CODE =====
     if (text && isItemCode(text)) {
         return bot.sendMessage(chatId, `Fetching details for ${text} (next step).`);
     }
 
-    // ===== DEFAULT =====
     return bot.sendMessage(chatId, "Send image or item code.");
+});
+
+
+// ===== HTTP SERVER (RENDER + UI) =====
+const server = http.createServer((req, res) => {
+
+    // Serve homepage
+    if (req.url === "/") {
+        const filePath = path.join(__dirname, "index.html");
+
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.writeHead(500);
+                res.end("Error loading page");
+            } else {
+                res.writeHead(200, { "Content-Type": "text/html" });
+                res.end(data);
+            }
+        });
+
+        return;
+    }
+
+    // Fallback
+    res.writeHead(404);
+    res.end("Not found");
+});
+
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
