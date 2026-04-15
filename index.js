@@ -9,7 +9,7 @@ const QRCode = require('qrcode');
 const sharp = require('sharp');
 const jsQR = require('jsqr');
 const { createCanvas, loadImage } = require('canvas');
-const Tesseract = require('tesseract.js'); // 🔥 OCR
+const Tesseract = require('tesseract.js');
 
 // CONFIG
 const PASSWORD = "1234";
@@ -39,18 +39,51 @@ function generateQR(itemCode) {
   return itemCode;
 }
 
-// OCR
+// 🔥 CROP STICKER (KEY FIX)
+async function cropSticker(inputPath) {
+
+  const image = sharp(inputPath);
+  const meta = await image.metadata();
+
+  const croppedPath = inputPath.replace(".jpg", "_crop.jpg");
+
+  await image.extract({
+    left: Math.floor(meta.width * 0.55),
+    top: Math.floor(meta.height * 0.05),
+    width: Math.floor(meta.width * 0.4),
+    height: Math.floor(meta.height * 0.3)
+  }).toFile(croppedPath);
+
+  return croppedPath;
+}
+
+// 🔥 CLEAN + OCR
 async function extractText(imagePath) {
-  const { data: { text } } = await Tesseract.recognize(imagePath, 'eng');
+
+  const cleanPath = imagePath.replace(".jpg", "_clean.jpg");
+
+  await sharp(imagePath)
+    .grayscale()
+    .normalize()
+    .threshold(150)
+    .toFile(cleanPath);
+
+  const { data: { text } } = await Tesseract.recognize(cleanPath, 'eng');
+
   return text;
 }
 
+// 🔥 PARSER
 function parseText(text) {
+
+  text = text.toUpperCase();
+
   return {
-    name: (text.match(/ITEM\s*NO[:\s]*([A-Z0-9]+)/i)||[])[1],
-    gsm: (text.match(/(\d+)\s*GSM/i)||[])[1],
-    width: (text.match(/(\d+)\s*CM/i)||[])[1],
-    supplier: (text.match(/([A-Z]+)\s*TEXTILE/i)||[])[1]
+    name: (text.match(/ITEM\s*NO\.?\s*[:\-]?\s*([A-Z0-9]+)/)||[])[1],
+    gsm: (text.match(/(\d{2,4})\s*GSM/)||[])[1],
+    supplier: (text.match(/([A-Z]+)\s*TEXTILE/)||[])[1],
+    count: (text.match(/(\d+\s*WALES.*?)/)||[])[1],
+    width: (text.match(/(\d{2,4}\s*CM)/)||[])[1]
   };
 }
 
@@ -117,8 +150,9 @@ bot.on('message', async (msg) => {
     user.auth = false;
   }
 
-  // OCR CONFIRMATION
+  // OCR CONFIRM
   if (user.ocrPending) {
+
     if (text.toLowerCase() === "yes") {
       user.name = user.ocrData.name;
       user.gsm = user.ocrData.gsm;
@@ -174,7 +208,7 @@ Code: ${d.code}`);
     return bot.sendMessage(chatId, "GO AWAY BRUV!");
   }
 
-  // ENTRY FLOW (same as before)
+  // ENTRY FLOW
   if (user.step) {
 
     user.time = Date.now();
@@ -264,7 +298,8 @@ Code: ${d.code}`);
 
       if (!qr) {
 
-        const rawText = await extractText(filePath);
+        const cropped = await cropSticker(filePath);
+        const rawText = await extractText(cropped);
         const parsed = parseText(rawText);
 
         user.imagePath = filePath;
@@ -293,7 +328,7 @@ Type YES to confirm or NO to enter manually`);
   return bot.sendMessage(chatId, "Send image or item code.");
 });
 
-// SERVER (unchanged)
+// SERVER
 const server = http.createServer(async (req, res) => {
 
   if (req.url.startsWith("/img_") || req.url.includes("_final.jpg")) {
