@@ -7,7 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
-
 :root{
   --blue:#071a3a;
   --blue2:#0b2d66;
@@ -16,89 +15,33 @@
   --border:#cfe0ff;
   --bg:#eef4ff;
 }
-
 body{margin:0;font-family:Inter;background:var(--bg);}
-
 header{
   background:linear-gradient(135deg,var(--blue),var(--blue2));
-  color:white;
-  padding:14px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-  border-bottom:4px solid var(--green);
+  color:white;padding:14px;display:flex;gap:10px;
+  align-items:center;border-bottom:4px solid var(--green);
 }
-
 header img{height:30px;}
-
 .title{font-weight:800;}
 .sub{font-size:11px;color:#cfe0ff;}
-
 .tabs{display:flex;gap:10px;padding:10px;}
-.tab{
-  flex:1;
-  text-align:center;
-  padding:10px;
-  border-radius:999px;
-  background:white;
-  border:1px solid var(--border);
-  font-weight:700;
-}
+.tab{flex:1;text-align:center;padding:10px;border-radius:999px;
+  background:white;border:1px solid var(--border);font-weight:700;}
 .tab.active{background:var(--blue);color:white;}
-
-.panel{
-  margin:10px;
-  background:white;
-  border-radius:14px;
-  border:1px solid var(--border);
-  padding:10px;
-}
-
-.table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-}
-
-th{
-  background:var(--blue);
-  color:white;
-  padding:8px;
-}
-
-td{
-  padding:6px;
-  border-bottom:1px solid #eee;
-}
-
-input{
-  width:100%;
-  padding:6px;
-  border-radius:8px;
-  border:1px solid var(--border);
-}
-
-.btn{
-  width:100%;
-  margin-top:10px;
-  padding:12px;
-  border:none;
-  border-radius:12px;
-  font-weight:800;
-}
+.panel{margin:10px;background:white;border-radius:14px;
+  border:1px solid var(--border);padding:10px;}
+.table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:var(--blue);color:white;padding:8px;}
+td{padding:6px;border-bottom:1px solid #eee;}
+input{width:100%;padding:6px;border-radius:8px;border:1px solid var(--border);}
+.btn{width:100%;margin-top:10px;padding:12px;border:none;
+  border-radius:12px;font-weight:800;}
 .submit{background:var(--red);color:white;}
 .green{background:var(--green);color:white;}
-
 .tools{display:flex;gap:10px;margin-bottom:10px;}
 .tools input{flex:1;}
-
 .hide{display:none;}
-
-.thumb{
-  height:40px;
-  border-radius:6px;
-}
-
+.thumb{height:40px;border-radius:6px;}
 </style>
 </head>
 
@@ -118,7 +61,6 @@ input{
 </div>
 
 <div id="entry" class="panel">
-
 <table class="table">
 <thead>
 <tr>
@@ -136,11 +78,9 @@ input{
 </table>
 
 <button class="btn submit" onclick="submitAll()">🚀 Submit All</button>
-
 </div>
 
 <div id="report" class="panel hide">
-
 <div class="tools">
 <input id="search" placeholder="Search..." onkeyup="filter()">
 <button class="green" onclick="printTable()">Print</button>
@@ -162,7 +102,6 @@ input{
 </thead>
 <tbody id="dataBody"></tbody>
 </table>
-
 </div>
 
 <script>
@@ -174,10 +113,8 @@ let DATA=[];
 
 function init(){
   let body=document.getElementById("entryBody");
-
   for(let i=0;i<10;i++){
     rows[i]={image:""};
-
     body.innerHTML+=`
     <tr>
       <td><input type="file" onchange="loadImg(event,${i})"></td>
@@ -241,7 +178,7 @@ async function submitAll(){
 
     let final=c.toDataURL("image/jpeg",0.6);
 
-    // 🔥 FINAL FIX (GET INSTEAD OF POST)
+    // 🔥 FINAL WORKING METHOD (NO CORS EVER)
     let url = API + "?" + new URLSearchParams({
       action:"add",
       item:item,
@@ -254,7 +191,8 @@ async function submitAll(){
       image:final
     });
 
-    await fetch(url,{method:"GET"});
+    let imgPing = new Image();
+    imgPing.src = url;
 
   }
 
@@ -273,7 +211,6 @@ function loadData(){
 function render(data){
   let body=document.getElementById("dataBody");
   body.innerHTML="";
-
   data.forEach(d=>{
     body.innerHTML+=`
     <tr>
@@ -301,7 +238,6 @@ function exportCSV(){
   DATA.forEach(d=>{
     csv+=`${d.item},${d.count},${d.construction}\n`;
   });
-
   let blob=new Blob([csv]);
   let a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
