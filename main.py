@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, render_template
 from PIL import Image, ImageDraw
 import base64, io, os, time, qrcode, gspread, json
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 app = Flask(__name__)
 
@@ -17,7 +19,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 🔥 ENV-BASED AUTH (NO FILE)
+# 🔥 AUTH (ENV BASED)
 creds_dict = json.loads(os.environ.get("GOOGLE_CREDS"))
 
 creds = Credentials.from_service_account_info(
@@ -27,6 +29,8 @@ creds = Credentials.from_service_account_info(
 
 gc = gspread.authorize(creds)
 sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+
+drive_service = build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
 # 🔥 HOME
@@ -75,15 +79,24 @@ def render():
         path = os.path.join(OUTPUT_DIR,f"{item_code}.jpg")
         canvas.save(path,"JPEG")
 
-        # 🔥 UPLOAD TO DRIVE (SIMPLE)
-        file = gc.client.request(
-            "post",
-            "https://www.googleapis.com/upload/drive/v3/files?uploadType=media",
-            data=open(path,"rb"),
-            headers={"Content-Type":"image/jpeg"}
-        )
+        # 🔥 UPLOAD TO DRIVE (FIXED)
+        file_metadata = {"name": f"{item_code}.jpg"}
+        media = MediaFileUpload(path, mimetype="image/jpeg")
 
-        file_id = file.json()["id"]
+        file = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id"
+        ).execute()
+
+        file_id = file.get("id")
+
+        # 🔥 MAKE PUBLIC
+        drive_service.permissions().create(
+            fileId=file_id,
+            body={"role": "reader", "type": "anyone"}
+        ).execute()
+
         drive_link = f"https://drive.google.com/uc?id={file_id}"
 
         # 🔥 SAVE TO SHEET
