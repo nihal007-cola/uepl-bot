@@ -20,7 +20,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 🔥 OAUTH (ENV BASED)
+# 🔥 OAUTH
 creds = Credentials(
     None,
     refresh_token=os.environ.get("GOOGLE_REFRESH_TOKEN"),
@@ -30,11 +30,9 @@ creds = Credentials(
     scopes=SCOPES
 )
 
-# 🔥 AUTO REFRESH
 if creds.expired and creds.refresh_token:
     creds.refresh(Request())
 
-# 🔥 CLIENTS
 gc = gspread.authorize(creds)
 sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
@@ -65,23 +63,41 @@ def render():
         header, encoded = image_data.split(",",1)
         img = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
 
-        # 🔥 CANVAS
-        W,H = 1600,2000
-        canvas = Image.new("RGB",(W,H),"white")
+        # 🔥 CANVAS SETTINGS
+        W, H = 1600, 2000
+        SIDE_PAD = 40
+        TOP_PAD = 40
+        BOTTOM_PANEL = 320
+
+        canvas = Image.new("RGB", (W, H), "white")
         draw = ImageDraw.Draw(canvas)
 
-        draw.rectangle([5,5,W-5,H-5],outline="black",width=2)
+        # outer border
+        draw.rectangle([5,5,W-5,H-5], outline="black", width=2)
 
-        img.thumbnail((W-80,H-360))
-        canvas.paste(img,((W-img.width)//2,30))
+        # 🔥 IMAGE AREA (perfect centering)
+        img.thumbnail((W - 2*SIDE_PAD, H - BOTTOM_PANEL - TOP_PAD))
+        canvas.paste(img, ((W - img.width)//2, TOP_PAD))
 
-        # 🔥 TEXT
-        draw.text((60,H-260), item_code, fill="black")
+        # 🔥 BOTTOM PANEL LINE
+        draw.line([(0, H - BOTTOM_PANEL), (W, H - BOTTOM_PANEL)], fill="black", width=3)
 
-        # 🔥 QR
+        # 🔥 QR (RIGHT)
         qr = qrcode.make(item_code)
-        qr = qr.resize((280,280))
-        canvas.paste(qr,(W-330,H-330))
+        qr = qr.resize((250,250))
+        canvas.paste(qr, (W - 300, H - 280))
+
+        # 🔥 LOGO (LEFT)
+        try:
+            logo = Image.open("static/logo.png").convert("RGBA")
+            logo.thumbnail((220,220))
+            canvas.paste(logo, (40, H - 280), logo)
+        except:
+            pass  # fail safe if logo missing
+
+        # 🔥 TEXT (LEFT BOTTOM)
+        draw.text((40, H - 70), "Offices of Nawnit Nihal", fill="black")
+        draw.text((40, H - 110), item_code, fill="black")
 
         # 🔥 SAVE LOCAL
         path = os.path.join(OUTPUT_DIR,f"{item_code}.jpg")
@@ -105,7 +121,8 @@ def render():
             body={"role": "reader", "type": "anyone"}
         ).execute()
 
-        drive_link = f"https://drive.google.com/uc?id={file_id}"
+        # 🔥 FIXED PREVIEW LINK
+        drive_link = f"https://drive.google.com/thumbnail?id={file_id}"
 
         # 🔥 SAVE TO SHEET
         sheet.append_row([
