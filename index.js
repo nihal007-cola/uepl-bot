@@ -50,20 +50,19 @@ async function detectQR(filePath) {
 
         const code = jsQR(data.data, img.width, img.height);
         return code ? code.data : null;
-
     } catch {
         return null;
     }
 }
 
-// BRAND IMAGE (after entry complete)
+// BRAND IMAGE
 async function brandImage(inputPath, itemCode) {
 
     const qrBuffer = await QRCode.toBuffer(generateQR(itemCode), { width: 140 });
 
     const brandingSVG = Buffer.from(`
         <svg width="600" height="80">
-            <text x="10" y="50" font-size="28" fill="black">
+            <text x="10" y="50" font-size="26" fill="black">
             Powered by Offices of Nawnit Nihal
             </text>
         </svg>
@@ -88,7 +87,7 @@ async function brandImage(inputPath, itemCode) {
 
     await canvas.composite([
         { input: await base.toBuffer(), top: padding, left: padding },
-        { input: qrBuffer, top: meta.height + padding + 20, left: meta.width - 120 },
+        { input: qrBuffer, top: meta.height + padding + 20, left: meta.width - 160 },
         { input: brandingSVG, top: meta.height + padding + 30, left: 20 }
     ])
     .jpeg()
@@ -107,80 +106,82 @@ bot.on('message', async (msg) => {
         users[chatId] = { auth: false, time: 0 };
     }
 
-    // SESSION
-    if (users[chatId].auth && Date.now() - users[chatId].time > SESSION_DURATION) {
-        users[chatId].auth = false;
+    const user = users[chatId];
+
+    // SESSION (safe)
+    if (user.auth && !user.step && Date.now() - user.time > SESSION_DURATION) {
+        user.auth = false;
     }
 
-    // AUTH
-    if (!users[chatId].auth) {
+    // 🔐 AUTH
+    if (!user.auth) {
         if (text === PASSWORD) {
-            users[chatId].auth = true;
-            users[chatId].time = Date.now();
-            return bot.sendMessage(chatId, "Access granted.");
+            user.auth = true;
+            user.time = Date.now();
+            return bot.sendMessage(chatId, "Access granted. Send image or item code.");
         }
-        return bot.sendMessage(chatId, "Welcome. Password please.");
+        return bot.sendMessage(chatId, "GO AWAY BRUV! this is for UEPL use only.");
     }
 
-    // ENQUIRY BY CODE
-    if (text && isItemCode(text)) {
-        users[chatId].verify = true;
-        users[chatId].pendingCode = text;
-        return bot.sendMessage(chatId, "Enter password for verification.");
-    }
+    // 🔁 ENTRY FLOW
+    if (user.step) {
 
-    // ENTRY FLOW
-    if (users[chatId].step) {
+        user.time = Date.now();
 
-        const u = users[chatId];
-
-        if (u.step === "name") {
-            u.name = text;
-            u.step = "count";
+        if (user.step === "name") {
+            user.name = text;
+            user.step = "count";
             return bot.sendMessage(chatId, "Count & Construction?");
         }
 
-        if (u.step === "count") {
-            u.count = text;
-            u.step = "gsm";
+        if (user.step === "count") {
+            user.count = text;
+            user.step = "gsm";
             return bot.sendMessage(chatId, "GSM?");
         }
 
-        if (u.step === "gsm") {
-            u.gsm = text;
-            u.step = "supplier";
+        if (user.step === "gsm") {
+            user.gsm = text;
+            user.step = "supplier";
             return bot.sendMessage(chatId, "Supplier?");
         }
 
-        if (u.step === "supplier") {
-            u.supplier = text;
-            u.step = "rate";
+        if (user.step === "supplier") {
+            user.supplier = text;
+            user.step = "rate";
             return bot.sendMessage(chatId, "Rate?");
         }
 
-        if (u.step === "rate") {
-            u.rate = text;
-            u.step = "stock";
-            return bot.sendMessage(chatId, "Availability?");
+        if (user.step === "rate") {
+            user.rate = text;
+            user.step = "stock";
+            return bot.sendMessage(chatId, "Availability / meter?");
         }
 
-        if (u.step === "stock") {
+        if (user.step === "stock") {
 
-            u.stock = text;
-            u.step = null;
+            user.stock = text;
+            user.step = null;
 
             const itemCode = `UEPL${ITEM_COUNTER++}`;
-            const finalImage = await brandImage(u.imagePath, itemCode);
+            const finalImage = await brandImage(user.imagePath, itemCode);
 
             await bot.sendPhoto(chatId, finalImage, {
                 caption: `Item saved ✅\nCode: ${itemCode}`
             });
 
-            return bot.sendMessage(chatId, "Saved. (Next: DB)");
+            return;
         }
     }
 
-    // IMAGE INPUT
+    // 🔎 ITEM CODE → ENQUIRY
+    if (text && isItemCode(text)) {
+        user.verify = true;
+        user.pendingCode = text;
+        return bot.sendMessage(chatId, "Enter password for verification.");
+    }
+
+    // 📸 IMAGE
     if (msg.photo) {
 
         const photo = msg.photo[msg.photo.length - 1];
@@ -197,16 +198,16 @@ bot.on('message', async (msg) => {
 
             const qr = await detectQR(filePath);
 
-            // NO QR → ENTRY
+            // ❌ NO QR → ENTRY
             if (!qr) {
-                users[chatId].step = "name";
-                users[chatId].imagePath = filePath;
+                user.step = "name";
+                user.imagePath = filePath;
                 return bot.sendMessage(chatId, "Item Name?");
             }
 
-            // QR FOUND → ENQUIRY
-            users[chatId].verify = true;
-            return bot.sendMessage(chatId, "QR detected. Enter password.");
+            // ✅ QR → ENQUIRY
+            user.verify = true;
+            return bot.sendMessage(chatId, "Verification required. Enter password.");
         });
 
         return;
