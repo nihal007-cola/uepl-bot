@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from PIL import Image, ImageDraw
-import base64, io, os, time, qrcode, gspread
+import base64, io, os, time, qrcode, gspread, json
 from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
@@ -17,21 +17,25 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = Credentials.from_service_account_file(
-    "service_account.json",
+# 🔥 ENV-BASED AUTH (NO FILE)
+creds_dict = json.loads(os.environ.get("GOOGLE_CREDS"))
+
+creds = Credentials.from_service_account_info(
+    creds_dict,
     scopes=SCOPES
 )
 
 gc = gspread.authorize(creds)
 sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
-# 🔥 ROUTES
 
+# 🔥 HOME
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
+# 🔥 SAVE ENTRY
 @app.route("/render", methods=["POST"])
 def render():
 
@@ -49,7 +53,7 @@ def render():
         header, encoded = image_data.split(",",1)
         img = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGB")
 
-        # 🔥 CANVAS (same style as catalogue)
+        # 🔥 CANVAS
         W,H = 1600,2000
         canvas = Image.new("RGB",(W,H),"white")
         draw = ImageDraw.Draw(canvas)
@@ -71,7 +75,7 @@ def render():
         path = os.path.join(OUTPUT_DIR,f"{item_code}.jpg")
         canvas.save(path,"JPEG")
 
-        # 🔥 UPLOAD TO DRIVE
+        # 🔥 UPLOAD TO DRIVE (SIMPLE)
         file = gc.client.request(
             "post",
             "https://www.googleapis.com/upload/drive/v3/files?uploadType=media",
@@ -80,7 +84,6 @@ def render():
         )
 
         file_id = file.json()["id"]
-
         drive_link = f"https://drive.google.com/uc?id={file_id}"
 
         # 🔥 SAVE TO SHEET
@@ -99,6 +102,7 @@ def render():
     return jsonify({"ok":True})
 
 
+# 🔥 REPORT
 @app.route("/report/available")
 def report():
 
