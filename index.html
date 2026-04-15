@@ -4,6 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UEPL Inventory</title>
 
+<link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
@@ -23,7 +24,6 @@ body{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  box-shadow:0 4px 12px rgba(0,0,0,0.2);
 }
 
 .left{
@@ -33,38 +33,21 @@ body{
   color:white;
 }
 
-.logo{
-  height:34px;
-}
+.logo{height:34px;}
 
-/* BRAND TEXT */
-.brand{
-  display:flex;
-  flex-direction:column;
-}
-
-.brand-title{
-  font-size:18px;
-  font-weight:800;
-}
-
-.brand-sub{
-  font-size:11px;
-  opacity:0.7;
-}
+.brand-title{font-weight:800;}
+.brand-sub{font-size:11px;opacity:0.7;}
 
 .right button{
-  margin-left:10px;
-  padding:8px 16px;
+  padding:8px 14px;
   border:none;
   border-radius:20px;
-  font-weight:700;
   background:#1fbf6b;
   color:white;
   cursor:pointer;
 }
 
-/* PASSWORD SCREEN */
+/* LOGIN */
 .login{
   display:flex;
   justify-content:center;
@@ -76,49 +59,54 @@ body{
   background:white;
   padding:30px;
   border-radius:20px;
-  text-align:center;
-  box-shadow:0 10px 40px rgba(0,0,0,0.2);
 }
 
 input{
   width:100%;
-  padding:14px;
+  padding:12px;
   margin:10px 0;
-  border-radius:30px;
+  border-radius:20px;
   border:none;
   background:#f1f5ff;
 }
 
+/* APP */
+.container{padding:20px;display:none;}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:15px;
+}
+
+.search{
+  padding:10px;
+  border-radius:20px;
+  border:none;
+  width:200px;
+}
+
 .btn{
-  padding:10px 20px;
+  padding:10px 16px;
   border:none;
   border-radius:20px;
   background:#071a3a;
   color:white;
   cursor:pointer;
-  font-weight:700;
 }
 
-/* TABLE GRID */
-.container{
-  padding:20px;
-  display:none;
-}
-
+/* TABLE */
 .table{
   width:100%;
-  border-collapse:collapse;
   background:white;
   border-radius:16px;
   overflow:hidden;
-  box-shadow:0 10px 30px rgba(0,0,0,0.15);
 }
 
 .table th{
   background:#071a3a;
   color:white;
   padding:12px;
-  text-align:left;
 }
 
 .table td{
@@ -126,11 +114,9 @@ input{
   border-bottom:1px solid #eee;
 }
 
-/* EMPTY STATE */
 .empty{
   text-align:center;
   padding:40px;
-  color:#555;
 }
 
 </style>
@@ -138,84 +124,101 @@ input{
 
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div class="left">
-    <img src="logo.png" class="logo">
-    <div class="brand">
+    <img src="/logo.png" class="logo">
+    <div>
       <div class="brand-title">UEPL Inventory</div>
       <div class="brand-sub">Powered by Offices of Nawnit Nihal</div>
     </div>
   </div>
-
   <div class="right">
     <button onclick="logout()">Logout</button>
   </div>
 </div>
 
-<!-- LOGIN -->
 <div class="login" id="loginBox">
   <div class="box">
-    <h2>Enter Password</h2>
-    <input id="pass" placeholder="Password">
+    <h3>Password</h3>
+    <input id="pass">
     <button class="btn" onclick="login()">Enter</button>
   </div>
 </div>
 
-<!-- DATA GRID -->
 <div class="container" id="app">
+
+  <div class="topbar">
+    <input class="search" id="search" placeholder="Search..." onkeyup="filter()">
+    <button class="btn" onclick="exportPDF()">Export PDF</button>
+  </div>
 
   <table class="table">
     <thead>
       <tr>
+        <th>Item Code</th>
         <th>Item Name</th>
-        <th>Count & Construction</th>
+        <th>Count</th>
         <th>GSM</th>
         <th>Supplier</th>
         <th>Rate</th>
-        <th>Availability (m)</th>
+        <th>Stock</th>
       </tr>
     </thead>
-
     <tbody id="dataBody"></tbody>
   </table>
 
-  <div class="empty" id="emptyState">
-    No items available yet.
-  </div>
+  <div class="empty" id="empty">No data</div>
 
 </div>
 
 <script>
 
-const PASSWORD = "1234"; // same as bot
+const PASSWORD="1234";
+let DATA=[];
 
 function login(){
-  let p = document.getElementById("pass").value;
+  if(document.getElementById("pass").value===PASSWORD){
+    loginBox.style.display="none";
+    app.style.display="block";
+  }else alert("GO AWAY BRUV!");
+}
 
-  if(p === PASSWORD){
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("app").style.display="block";
+function logout(){location.reload();}
 
-    loadData();
-  } else {
-    alert("GO AWAY BRUV! this is for UEPL use only.");
+function render(){
+  let body=document.getElementById("dataBody");
+  body.innerHTML="";
+
+  if(DATA.length===0){
+    empty.style.display="block";
+    return;
   }
+
+  empty.style.display="none";
+
+  DATA.forEach(d=>{
+    body.innerHTML+=`
+    <tr>
+      <td>${d.code}</td>
+      <td>${d.name}</td>
+      <td>${d.count}</td>
+      <td>${d.gsm}</td>
+      <td>${d.supplier}</td>
+      <td>${d.rate}</td>
+      <td>${d.stock}</td>
+    </tr>`;
+  });
 }
 
-function logout(){
-  location.reload();
+function filter(){
+  let q=document.getElementById("search").value.toLowerCase();
+  let filtered=DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q));
+  DATA=filtered;
+  render();
 }
 
-/* 🚫 NO SAMPLE DATA — CLEAN */
-function loadData(){
-  const body = document.getElementById("dataBody");
-  const empty = document.getElementById("emptyState");
-
-  body.innerHTML = "";
-
-  // currently empty — will connect to backend next
-  empty.style.display = "block";
+function exportPDF(){
+  window.print(); // simple MVP
 }
 
 </script>
