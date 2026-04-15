@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 from PIL import Image, ImageDraw
-import base64, io, os, time, qrcode, gspread, json
-from google.oauth2.service_account import Credentials
+import base64, io, os, time, qrcode, gspread
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
@@ -19,14 +20,21 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 🔥 AUTH (ENV BASED)
-creds_dict = json.loads(os.environ.get("GOOGLE_CREDS"))
-
-creds = Credentials.from_service_account_info(
-    creds_dict,
+# 🔥 OAUTH (ENV BASED)
+creds = Credentials(
+    None,
+    refresh_token=os.environ.get("GOOGLE_REFRESH_TOKEN"),
+    token_uri="https://oauth2.googleapis.com/token",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
     scopes=SCOPES
 )
 
+# 🔥 AUTO REFRESH
+if creds.expired and creds.refresh_token:
+    creds.refresh(Request())
+
+# 🔥 CLIENTS
 gc = gspread.authorize(creds)
 sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
@@ -79,7 +87,7 @@ def render():
         path = os.path.join(OUTPUT_DIR,f"{item_code}.jpg")
         canvas.save(path,"JPEG")
 
-        # 🔥 UPLOAD TO DRIVE (FIXED)
+        # 🔥 UPLOAD TO DRIVE
         file_metadata = {"name": f"{item_code}.jpg"}
         media = MediaFileUpload(path, mimetype="image/jpeg")
 
