@@ -1,7 +1,7 @@
 {
   "name": "uepl-bot",
   "version": "1.0.0",
-  "description": "UEPL Telegram Bot - Image + QR System",
+  "description": "UEPL Telegram Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
