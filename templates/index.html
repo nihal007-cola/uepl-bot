@@ -1,1 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UEPL SYSTEM</title>
 
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --primary:#071a3a;
+  --primary2:#0b2d66;
+  --accent:#1fbf6b;
+  --danger:#e63946;
+  --border:#cfe0ff;
+  --bg:#eef4ff;
+}
+
+body{
+  margin:0;
+  font-family:Inter;
+  background:var(--bg);
+}
+
+/* 🔥 HEADER */
+header{
+  background:linear-gradient(135deg,var(--primary),var(--primary2));
+  color:white;
+  padding:14px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  border-bottom:4px solid var(--accent);
+}
+
+header img{
+  height:34px;
+}
+
+.title{
+  font-weight:800;
+  font-size:16px;
+}
+
+.sub{
+  font-size:11px;
+  color:#cfe0ff;
+}
+
+/* 🔥 TABS */
+.tabs{
+  display:flex;
+  gap:10px;
+  padding:10px;
+}
+
+.tab{
+  flex:1;
+  text-align:center;
+  padding:10px;
+  border-radius:999px;
+  background:white;
+  border:1px solid var(--border);
+  font-weight:700;
+  cursor:pointer;
+}
+
+.tab.active{
+  background:var(--primary);
+  color:white;
+}
+
+/* 🔥 PANELS */
+.panel{
+  margin:10px;
+  background:white;
+  border-radius:14px;
+  border:1px solid var(--border);
+  padding:12px;
+}
+
+/* 🔥 TABLE */
+.table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+
+th{
+  background:var(--primary);
+  color:white;
+  padding:8px;
+}
+
+td{
+  padding:6px;
+  border-bottom:1px solid #eee;
+}
+
+input{
+  width:100%;
+  padding:6px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  font-size:12px;
+}
+
+/* 🔥 BUTTONS */
+.btn{
+  width:100%;
+  margin-top:12px;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.submit{
+  background:var(--danger);
+  color:white;
+}
+
+.green{
+  background:var(--accent);
+  color:white;
+}
+
+/* 🔥 TOOLS */
+.tools{
+  display:flex;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.tools input{
+  flex:1;
+}
+
+/* 🔥 UTIL */
+.hide{display:none;}
+.thumb{height:40px;border-radius:6px;}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<img src="/static/logo.png">
+<div>
+<div class="title">UEPL SYSTEM</div>
+<div class="sub">Powered by Offices of Nawnit Nihal</div>
+</div>
+</header>
+
+<div class="tabs">
+<div class="tab active" id="tabEntry" onclick="showEntry()">ENTRY</div>
+<div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
+</div>
+
+<!-- 🔥 ENTRY PANEL -->
+<div id="entry" class="panel">
+
+<table class="table">
+<thead>
+<tr>
+<th>Image</th>
+<th>Item</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+</tr>
+</thead>
+
+<tbody id="entryBody"></tbody>
+</table>
+
+<button class="btn submit" onclick="submitAll()">🚀 Submit All</button>
+
+</div>
+
+<!-- 🔥 REPORT PANEL -->
+<div id="report" class="panel hide">
+
+<div class="tools">
+<input id="search" placeholder="Search..." onkeyup="filter()">
+<button class="green" onclick="printTable()">Print</button>
+<button class="green" onclick="exportCSV()">Export</button>
+</div>
+
+<table class="table">
+<thead>
+<tr>
+<th>Item Code</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+<th>Image</th>
+</tr>
+</thead>
+
+<tbody id="dataBody"></tbody>
+</table>
+
+</div>
+
+<script>
+
+/* 🔥 ENTRY INIT */
+
+let rows=[];
+let DATA=[];
+
+function init(){
+  let body=document.getElementById("entryBody");
+
+  for(let i=0;i<10;i++){
+
+    rows[i]={image:""};
+
+    body.innerHTML+=`
+    <tr>
+      <td><input type="file" onchange="loadImg(event,${i})"></td>
+      <td><input id="item${i}"></td>
+      <td><input id="count${i}"></td>
+      <td><input id="construction${i}"></td>
+      <td><input id="composition${i}"></td>
+      <td><input id="weight${i}"></td>
+      <td><input id="width${i}"></td>
+      <td><input id="availability${i}" value="YES"></td>
+    </tr>`;
+  }
+}
+init();
+
+/* 🔥 TAB SWITCH */
+
+function showEntry(){
+  entry.classList.remove("hide");
+  report.classList.add("hide");
+  tabEntry.classList.add("active");
+  tabReport.classList.remove("active");
+}
+
+function showReport(){
+  entry.classList.add("hide");
+  report.classList.remove("hide");
+  tabReport.classList.add("active");
+  tabEntry.classList.remove("active");
+  loadData();
+}
+
+/* 🔥 IMAGE LOAD */
+
+function loadImg(e,i){
+  let reader=new FileReader();
+  reader.onload=ev=>rows[i].image=ev.target.result;
+  reader.readAsDataURL(e.target.files[0]);
+}
+
+/* 🔥 SUBMIT */
+
+async function submitAll(){
+
+  for(let i=0;i<10;i++){
+
+    let item=document.getElementById("item"+i).value;
+    if(!item||!rows[i].image) continue;
+
+    let payload={
+      entries:[{
+        item:item,
+        count:document.getElementById("count"+i).value,
+        construction:document.getElementById("construction"+i).value,
+        composition:document.getElementById("composition"+i).value,
+        weight:document.getElementById("weight"+i).value,
+        width:document.getElementById("width"+i).value,
+        availability:document.getElementById("availability"+i).value,
+        image:rows[i].image
+      }]
+    };
+
+    await fetch("/render",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+  }
+
+  alert("Upload Done ✅");
+}
+
+/* 🔥 REPORT */
+
+async function loadData(){
+  let res=await fetch("/report/available");
+  let json=await res.json();
+  DATA=json.data;
+  render(DATA);
+}
+
+function render(data){
+  let body=document.getElementById("dataBody");
+  body.innerHTML="";
+
+  data.forEach(d=>{
+    body.innerHTML+=`
+    <tr>
+      <td>${d.item||""}</td>
+      <td>${d.count||""}</td>
+      <td>${d.construction||""}</td>
+      <td>${d.composition||""}</td>
+      <td>${d.weight||""}</td>
+      <td>${d.width||""}</td>
+      <td>${d.availability||""}</td>
+      <td>${d.image ? `<img src="${d.image}" class="thumb">` : ''}</td>
+    </tr>`;
+  });
+}
+
+function filter(){
+  let q=search.value.toLowerCase();
+  render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
+}
+
+function printTable(){window.print();}
+
+function exportCSV(){
+  let csv="Item,Count,Construction\n";
+  DATA.forEach(d=>{
+    csv+=`${d.item},${d.count},${d.construction}\n`;
+  });
+
+  let blob=new Blob([csv]);
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="report.csv";
+  a.click();
+}
+
+</script>
+
+</body>
+</html>
