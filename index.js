@@ -37,26 +37,62 @@ function generateQR(itemCode) {
     return `${itemCode}|${hash}`;
 }
 
-// 🖼️ BRAND IMAGE
+// 🖼️ BRAND IMAGE (WHITE CARD + STRIP)
 async function brandImage(inputPath, itemCode) {
 
     const qrText = generateQR(itemCode);
+    const qrBuffer = await QRCode.toBuffer(qrText, { width: 160 });
 
-    const qrBuffer = await QRCode.toBuffer(qrText, { width: 180 });
+    const brandingSVG = Buffer.from(`
+        <svg width="600" height="80">
+            <text x="10" y="50"
+            font-size="28"
+            fill="black"
+            font-family="Arial">
+            Powered by Offices of Nawnit Nihal
+            </text>
+        </svg>
+    `);
 
-    const outputPath = inputPath.replace(".jpg", "_final.jpg");
+    const base = sharp(inputPath);
+    const meta = await base.metadata();
 
-    const image = sharp(inputPath);
-    const meta = await image.metadata();
+    const padding = 20;
+    const bottomStrip = 120;
 
-    await image
+    const newWidth = meta.width + padding * 2;
+    const newHeight = meta.height + padding * 2 + bottomStrip;
+
+    const outputPath = inputPath.replace(".jpg", "_card.jpg");
+
+    const canvas = sharp({
+        create: {
+            width: newWidth,
+            height: newHeight,
+            channels: 3,
+            background: "#ffffff"
+        }
+    });
+
+    await canvas
         .composite([
             {
+                input: await base.toBuffer(),
+                top: padding,
+                left: padding
+            },
+            {
                 input: qrBuffer,
-                top: meta.height - 200,
-                left: meta.width - 200
+                top: newHeight - bottomStrip + 20,
+                left: newWidth - 180
+            },
+            {
+                input: brandingSVG,
+                top: newHeight - bottomStrip + 30,
+                left: 20
             }
         ])
+        .jpeg()
         .toFile(outputPath);
 
     return outputPath;
@@ -69,14 +105,18 @@ bot.on('message', async (msg) => {
 
     if (!users[chatId]) users[chatId] = { auth: false };
 
-    // AUTH
+    // 🔐 STRICT AUTH (NO BYPASS)
     if (!users[chatId].auth) {
+
         if (text === PASSWORD) {
             users[chatId].auth = true;
-            return bot.sendMessage(chatId, "Access granted. Send image or item code.");
-        } else {
-            return bot.sendMessage(chatId, "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please.");
+            return bot.sendMessage(chatId, "Access granted. Send image.");
         }
+
+        return bot.sendMessage(
+            chatId,
+            "Welcome. I am Bot Nihal, junior merchant at UEPL.\nPassword please."
+        );
     }
 
     // IMAGE FLOW
@@ -110,6 +150,10 @@ bot.on('message', async (msg) => {
                     caption: `Item saved ✅\nCode: ${itemCode}`
                 });
 
+                // 🔥 ENTRY PROTOCOL START
+                users[chatId].step = "item_name";
+
+                await bot.sendMessage(chatId, "Item Name?");
             });
 
             writer.on('error', async () => {
