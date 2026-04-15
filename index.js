@@ -16,6 +16,7 @@ const PASSWORD = "1234";
 const PORT = process.env.PORT || 3000;
 const SECRET = "UEPL_SECRET_2026";
 const SESSION_DURATION = 30 * 60 * 1000;
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
 // INIT
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
@@ -108,12 +109,12 @@ bot.on('message', async (msg) => {
 
     const user = users[chatId];
 
-    // SESSION (safe)
+    // SESSION
     if (user.auth && !user.step && Date.now() - user.time > SESSION_DURATION) {
         user.auth = false;
     }
 
-    // 🔐 AUTH + VERIFY HANDLER
+    // AUTH + VERIFY
     if (!user.auth || user.verify) {
 
         if (text === PASSWORD) {
@@ -121,14 +122,28 @@ bot.on('message', async (msg) => {
             user.auth = true;
             user.time = Date.now();
 
-            // 🔥 COMPLETE ENQUIRY
+            // 🔥 ENQUIRY FETCH
             if (user.verify) {
                 user.verify = false;
 
-                return bot.sendMessage(
-                    chatId,
-                    `ENQUIRY RESULT (MVP)\nCode: ${user.pendingCode}`
-                );
+                const res = await axios.get(`${SHEET_URL}?code=${user.pendingCode}`);
+
+                if (res.data === "NOT_FOUND") {
+                    return bot.sendMessage(chatId, "Item not found ❌");
+                }
+
+                const d = res.data;
+
+                return bot.sendMessage(chatId,
+`Item Details 📦
+
+Item Name: ${d.name}
+Count: ${d.count}
+GSM: ${d.gsm}
+Supplier: ${d.supplier}
+Rate: ${d.rate}
+Availability: ${d.stock}
+Code: ${d.code}`);
             }
 
             return bot.sendMessage(chatId, "Access granted. Send image or item code.");
@@ -137,7 +152,7 @@ bot.on('message', async (msg) => {
         return bot.sendMessage(chatId, "GO AWAY BRUV! this is for UEPL use only.");
     }
 
-    // 🔁 ENTRY FLOW
+    // ENTRY FLOW
     if (user.step) {
 
         user.time = Date.now();
@@ -178,6 +193,19 @@ bot.on('message', async (msg) => {
             user.step = null;
 
             const itemCode = `UEPL${ITEM_COUNTER++}`;
+
+            // 🔥 SAVE TO GOOGLE SHEET
+            await axios.post(SHEET_URL, {
+                code: itemCode,
+                name: user.name,
+                count: user.count,
+                gsm: user.gsm,
+                supplier: user.supplier,
+                rate: user.rate,
+                stock: user.stock,
+                image: user.imagePath
+            });
+
             const finalImage = await brandImage(user.imagePath, itemCode);
 
             await bot.sendPhoto(chatId, finalImage, {
@@ -188,14 +216,14 @@ bot.on('message', async (msg) => {
         }
     }
 
-    // 🔎 ITEM CODE → ENQUIRY
+    // ITEM CODE
     if (text && isItemCode(text)) {
         user.verify = true;
         user.pendingCode = text;
         return bot.sendMessage(chatId, "Verification required. Enter password.");
     }
 
-    // 📸 IMAGE
+    // IMAGE
     if (msg.photo) {
 
         const photo = msg.photo[msg.photo.length - 1];
@@ -212,16 +240,15 @@ bot.on('message', async (msg) => {
 
             const qr = await detectQR(filePath);
 
-            // ❌ NO QR → ENTRY
             if (!qr) {
                 user.step = "name";
                 user.imagePath = filePath;
                 return bot.sendMessage(chatId, "Item Name?");
             }
 
-            // ✅ QR → ENQUIRY
             user.verify = true;
-            user.pendingCode = "QR_ITEM";
+            user.pendingCode = qr.split("|")[0];
+
             return bot.sendMessage(chatId, "Verification required. Enter password.");
         });
 
@@ -231,8 +258,14 @@ bot.on('message', async (msg) => {
     return bot.sendMessage(chatId, "Send image or item code.");
 });
 
-// SERVER
-const server = http.createServer((req, res) => {
+// SAAS API
+const server = http.createServer(async (req, res) => {
+
+    if (req.url === "/api/items") {
+        const response = await axios.get(SHEET_URL + "?code=ALL");
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(response.data));
+    }
 
     if (req.url === "/") {
         return fs.createReadStream(path.join(__dirname, "index.html")).pipe(res);
