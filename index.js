@@ -17,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 const SESSION_DURATION = 30 * 60 * 1000;
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-// BOT INIT
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: { autoStart: false }
 });
@@ -39,25 +38,7 @@ function generateQR(itemCode) {
   return itemCode;
 }
 
-// 🔥 CROP STICKER (KEY FIX)
-async function cropSticker(inputPath) {
-
-  const image = sharp(inputPath);
-  const meta = await image.metadata();
-
-  const croppedPath = inputPath.replace(".jpg", "_crop.jpg");
-
-  await image.extract({
-    left: Math.floor(meta.width * 0.55),
-    top: Math.floor(meta.height * 0.05),
-    width: Math.floor(meta.width * 0.4),
-    height: Math.floor(meta.height * 0.3)
-  }).toFile(croppedPath);
-
-  return croppedPath;
-}
-
-// 🔥 CLEAN + OCR
+// 🔥 OCR STRONG (STICKER ONLY)
 async function extractText(imagePath) {
 
   const cleanPath = imagePath.replace(".jpg", "_clean.jpg");
@@ -65,7 +46,8 @@ async function extractText(imagePath) {
   await sharp(imagePath)
     .grayscale()
     .normalize()
-    .threshold(150)
+    .sharpen()
+    .threshold(140)
     .toFile(cleanPath);
 
   const { data: { text } } = await Tesseract.recognize(cleanPath, 'eng');
@@ -73,7 +55,7 @@ async function extractText(imagePath) {
   return text;
 }
 
-// 🔥 PARSER
+// 🔥 PARSER (IMPROVED)
 function parseText(text) {
 
   text = text.toUpperCase();
@@ -82,7 +64,7 @@ function parseText(text) {
     name: (text.match(/ITEM\s*NO\.?\s*[:\-]?\s*([A-Z0-9]+)/)||[])[1],
     gsm: (text.match(/(\d{2,4})\s*GSM/)||[])[1],
     supplier: (text.match(/([A-Z]+)\s*TEXTILE/)||[])[1],
-    count: (text.match(/(\d+\s*WALES.*?)/)||[])[1],
+    count: (text.match(/(\d+\s*WALES.*?)\n/)||[])[1],
     width: (text.match(/(\d{2,4}\s*CM)/)||[])[1]
   };
 }
@@ -140,146 +122,47 @@ bot.on('message', async (msg) => {
   const text = msg.text;
 
   if (!users[chatId]) {
-    users[chatId] = { auth: false, time: 0, verify: false };
+    users[chatId] = { auth: false, time: 0 };
   }
 
   const user = users[chatId];
 
   // SESSION
-  if (user.auth && !user.step && Date.now() - user.time > SESSION_DURATION) {
+  if (user.auth && Date.now() - user.time > SESSION_DURATION) {
     user.auth = false;
   }
 
-  // OCR CONFIRM
-  if (user.ocrPending) {
-
-    if (text.toLowerCase() === "yes") {
-      user.name = user.ocrData.name;
-      user.gsm = user.ocrData.gsm;
-      user.supplier = user.ocrData.supplier;
-
-      user.step = "count";
-      user.ocrPending = false;
-
-      return bot.sendMessage(chatId, "Count & Construction?");
-    }
-
-    if (text.toLowerCase() === "no") {
-      user.ocrPending = false;
-      user.step = "name";
-      return bot.sendMessage(chatId, "Item Name?");
-    }
-  }
-
   // AUTH
-  if (!user.auth || user.verify) {
-
+  if (!user.auth) {
     if (text === PASSWORD) {
       user.auth = true;
       user.time = Date.now();
-
-      if (user.verify) {
-        user.verify = false;
-
-        const res = await axios.get(`${SHEET_URL}?code=${user.pendingCode}`);
-        if (res.data === "NOT_FOUND") {
-          return bot.sendMessage(chatId, "Item not found ❌");
-        }
-
-        const d = res.data;
-
-        await bot.sendPhoto(chatId, d.image);
-
-        return bot.sendMessage(chatId,
-`Item Details 📦
-
-Item Name: ${d.name}
-Count: ${d.count}
-GSM: ${d.gsm}
-Supplier: ${d.supplier}
-Rate: ${d.rate}
-Availability: ${d.stock}
-Code: ${d.code}`);
-      }
-
-      return bot.sendMessage(chatId, "Access granted. Send image or item code.");
+      return bot.sendMessage(chatId, "Send fabric image.");
     }
-
     return bot.sendMessage(chatId, "GO AWAY BRUV!");
   }
 
-  // ENTRY FLOW
-  if (user.step) {
-
-    user.time = Date.now();
-
-    if (user.step === "name") {
-      user.name = text;
-      user.step = "count";
-      return bot.sendMessage(chatId, "Count & Construction?");
-    }
-
-    if (user.step === "count") {
-      user.count = text;
-      user.step = "gsm";
-      return bot.sendMessage(chatId, "GSM?");
-    }
-
-    if (user.step === "gsm") {
-      user.gsm = text;
-      user.step = "supplier";
-      return bot.sendMessage(chatId, "Supplier?");
-    }
-
-    if (user.step === "supplier") {
-      user.supplier = text;
-      user.step = "rate";
-      return bot.sendMessage(chatId, "Rate?");
-    }
-
-    if (user.step === "rate") {
-      user.rate = text;
-      user.step = "stock";
-      return bot.sendMessage(chatId, "Availability / meter?");
-    }
-
-    if (user.step === "stock") {
-
-      user.stock = text;
-      user.step = null;
-
-      const itemCode = `UEPL${ITEM_COUNTER++}`;
-      const finalImage = await brandImage(user.imagePath, itemCode);
-
-      const imageUrl = `https://uepl-bot.onrender.com/${path.basename(finalImage)}`;
-
-      await axios.post(SHEET_URL, {
-        code: itemCode,
-        name: user.name,
-        count: user.count,
-        gsm: user.gsm,
-        supplier: user.supplier,
-        rate: user.rate,
-        stock: user.stock,
-        image: imageUrl
-      });
-
-      await bot.sendPhoto(chatId, finalImage, {
-        caption: `Item saved ✅\nCode: ${itemCode}`
-      });
-
-      return;
-    }
-  }
-
-  // ITEM CODE
+  // ITEM CODE ENQUIRY
   if (text && isItemCode(text)) {
-    user.verify = true;
-    user.pendingCode = text;
-    return bot.sendMessage(chatId, "Verification required. Enter password.");
+    const res = await axios.get(`${SHEET_URL}?code=${text}`);
+    if (res.data === "NOT_FOUND") {
+      return bot.sendMessage(chatId, "Item not found ❌");
+    }
+
+    const d = res.data;
+
+    await bot.sendPhoto(chatId, d.image);
+
+    return bot.sendMessage(chatId,
+`Item Details 📦
+
+Item Name: ${d.name}
+GSM: ${d.gsm}
+Supplier: ${d.supplier}
+Code: ${d.code}`);
   }
 
-  // IMAGE
+  // IMAGE FLOW
   if (msg.photo) {
 
     const photo = msg.photo[msg.photo.length - 1];
@@ -294,41 +177,46 @@ Code: ${d.code}`);
 
     writer.on('finish', async () => {
 
-      const qr = await detectQR(filePath);
-
-      if (!qr) {
-
-        const cropped = await cropSticker(filePath);
-        const rawText = await extractText(cropped);
-        const parsed = parseText(rawText);
-
-        user.imagePath = filePath;
-        user.ocrPending = true;
-        user.ocrData = parsed;
-
-        return bot.sendMessage(chatId,
-`Detected 🔍
-
-Item: ${parsed.name || "?"}
-GSM: ${parsed.gsm || "?"}
-Supplier: ${parsed.supplier || "?"}
-
-Type YES to confirm or NO to enter manually`);
+      // 🔥 FIRST IMAGE = FABRIC
+      if (!user.fabricImage) {
+        user.fabricImage = filePath;
+        return bot.sendMessage(chatId, "Now send sticker image.");
       }
 
-      user.verify = true;
-      user.pendingCode = qr;
+      // 🔥 SECOND IMAGE = STICKER (OCR HERE)
+      const rawText = await extractText(filePath);
+      const parsed = parseText(rawText);
 
-      return bot.sendMessage(chatId, "Verification required. Enter password.");
+      const itemCode = `UEPL${ITEM_COUNTER++}`;
+      const finalImage = await brandImage(user.fabricImage, itemCode);
+
+      const imageUrl = `https://uepl-bot.onrender.com/${path.basename(finalImage)}`;
+
+      await axios.post(SHEET_URL, {
+        code: itemCode,
+        name: parsed.name || "UNKNOWN",
+        gsm: parsed.gsm || "UNKNOWN",
+        supplier: parsed.supplier || "UNKNOWN",
+        count: parsed.count || "",
+        stock: parsed.width || "",
+        image: imageUrl
+      });
+
+      user.fabricImage = null;
+
+      await bot.sendPhoto(chatId, finalImage, {
+        caption: `Saved via OCR ✅\nCode: ${itemCode}`
+      });
+
     });
 
     return;
   }
 
-  return bot.sendMessage(chatId, "Send image or item code.");
+  return bot.sendMessage(chatId, "Send fabric image.");
 });
 
-// SERVER
+// SERVER unchanged
 const server = http.createServer(async (req, res) => {
 
   if (req.url.startsWith("/img_") || req.url.includes("_final.jpg")) {
