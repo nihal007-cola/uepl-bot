@@ -22,7 +22,6 @@ body{
   background:var(--bg);
 }
 
-/* 🔥 HEADER */
 header{
   background:linear-gradient(135deg,var(--primary),var(--primary2));
   color:white;
@@ -37,17 +36,6 @@ header img{
   height:34px;
 }
 
-.title{
-  font-weight:800;
-  font-size:16px;
-}
-
-.sub{
-  font-size:11px;
-  color:#cfe0ff;
-}
-
-/* 🔥 TABS */
 .tabs{
   display:flex;
   gap:10px;
@@ -70,7 +58,6 @@ header img{
   color:white;
 }
 
-/* 🔥 PANELS */
 .panel{
   margin:10px;
   background:white;
@@ -79,7 +66,6 @@ header img{
   padding:12px;
 }
 
-/* 🔥 TABLE */
 .table{
   width:100%;
   border-collapse:collapse;
@@ -105,7 +91,6 @@ input{
   font-size:12px;
 }
 
-/* 🔥 BUTTONS */
 .btn{
   width:100%;
   margin-top:12px;
@@ -121,12 +106,6 @@ input{
   color:white;
 }
 
-.green{
-  background:var(--accent);
-  color:white;
-}
-
-/* 🔥 TOOLS */
 .tools{
   display:flex;
   gap:10px;
@@ -137,10 +116,8 @@ input{
   flex:1;
 }
 
-/* 🔥 UTIL */
 .hide{display:none;}
-.thumb{height:40px;border-radius:6px;}
-
+.thumb{height:60px;border-radius:6px;}
 </style>
 </head>
 
@@ -149,8 +126,8 @@ input{
 <header>
 <img src="/static/logo.png">
 <div>
-<div class="title">UEPL SYSTEM</div>
-<div class="sub">Powered by Offices of Nawnit Nihal</div>
+<div style="font-weight:800;">UEPL SYSTEM</div>
+<div style="font-size:11px;color:#cfe0ff;">Powered by Offices of Nawnit Nihal</div>
 </div>
 </header>
 
@@ -159,9 +136,7 @@ input{
 <div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
 </div>
 
-<!-- 🔥 ENTRY PANEL -->
 <div id="entry" class="panel">
-
 <table class="table">
 <thead>
 <tr>
@@ -175,21 +150,16 @@ input{
 <th>Availability</th>
 </tr>
 </thead>
-
 <tbody id="entryBody"></tbody>
 </table>
 
 <button class="btn submit" onclick="submitAll()">🚀 Submit All</button>
-
 </div>
 
-<!-- 🔥 REPORT PANEL -->
 <div id="report" class="panel hide">
 
 <div class="tools">
 <input id="search" placeholder="Search..." onkeyup="filter()">
-<button class="green" onclick="printTable()">Print</button>
-<button class="green" onclick="exportCSV()">Export</button>
 </div>
 
 <table class="table">
@@ -205,15 +175,12 @@ input{
 <th>Image</th>
 </tr>
 </thead>
-
 <tbody id="dataBody"></tbody>
 </table>
 
 </div>
 
 <script>
-
-/* 🔥 ENTRY INIT */
 
 let rows=[];
 let DATA=[];
@@ -222,7 +189,6 @@ function init(){
   let body=document.getElementById("entryBody");
 
   for(let i=0;i<10;i++){
-
     rows[i]={image:""};
 
     body.innerHTML+=`
@@ -240,8 +206,6 @@ function init(){
 }
 init();
 
-/* 🔥 TAB SWITCH */
-
 function showEntry(){
   entry.classList.remove("hide");
   report.classList.add("hide");
@@ -257,47 +221,66 @@ function showReport(){
   loadData();
 }
 
-/* 🔥 IMAGE LOAD */
-
 function loadImg(e,i){
   let reader=new FileReader();
   reader.onload=ev=>rows[i].image=ev.target.result;
   reader.readAsDataURL(e.target.files[0]);
 }
 
-/* 🔥 SUBMIT */
-
 async function submitAll(){
+
+  let success = true;
 
   for(let i=0;i<10;i++){
 
     let item=document.getElementById("item"+i).value;
     if(!item||!rows[i].image) continue;
 
-    let payload={
-      entries:[{
-        item:item,
-        count:document.getElementById("count"+i).value,
-        construction:document.getElementById("construction"+i).value,
-        composition:document.getElementById("composition"+i).value,
-        weight:document.getElementById("weight"+i).value,
-        width:document.getElementById("width"+i).value,
-        availability:document.getElementById("availability"+i).value,
-        image:rows[i].image
-      }]
-    };
+    try{
+      let res = await fetch("/render",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          entries:[{
+            item:item,
+            count:document.getElementById("count"+i).value,
+            construction:document.getElementById("construction"+i).value,
+            composition:document.getElementById("composition"+i).value,
+            weight:document.getElementById("weight"+i).value,
+            width:document.getElementById("width"+i).value,
+            availability:document.getElementById("availability"+i).value,
+            image:rows[i].image
+          }]
+        })
+      });
 
-    await fetch("/render",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
+      let json = await res.json();
+      if(!json.ok) success=false;
+
+    }catch(e){
+      success=false;
+    }
   }
 
-  alert("Upload Done ✅");
-}
+  if(success){
+    alert("Upload Done ✅");
 
-/* 🔥 REPORT */
+    // 🔥 CLEAR FORM ONLY ON SUCCESS
+    for(let i=0;i<10;i++){
+      document.getElementById("item"+i).value="";
+      document.getElementById("count"+i).value="";
+      document.getElementById("construction"+i).value="";
+      document.getElementById("composition"+i).value="";
+      document.getElementById("weight"+i).value="";
+      document.getElementById("width"+i).value="";
+      document.getElementById("availability"+i).value="YES";
+      rows[i].image="";
+    }
+
+  }else{
+    alert("Some entries failed ❌");
+  }
+}
 
 async function loadData(){
   let res=await fetch("/report/available");
@@ -328,21 +311,6 @@ function render(data){
 function filter(){
   let q=search.value.toLowerCase();
   render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
-}
-
-function printTable(){window.print();}
-
-function exportCSV(){
-  let csv="Item,Count,Construction\n";
-  DATA.forEach(d=>{
-    csv+=`${d.item},${d.count},${d.construction}\n`;
-  });
-
-  let blob=new Blob([csv]);
-  let a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="report.csv";
-  a.click();
 }
 
 </script>
