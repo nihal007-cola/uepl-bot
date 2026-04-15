@@ -5,9 +5,14 @@ const path = require('path');
 const axios = require('axios');
 const http = require('http');
 
+const QRCode = require('qrcode');
+const sharp = require('sharp');
+const crypto = require('crypto');
+
 // CONFIG
 const PASSWORD = "1234";
 const PORT = process.env.PORT || 3000;
+const SECRET = "UEPL_SECRET_2026";
 
 // BOT INIT
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
@@ -21,6 +26,42 @@ function isItemCode(text) {
     return /^UEPL-\d+/.test(text);
 }
 
+// 🔐 QR GENERATOR
+function generateQR(itemCode) {
+    const hash = crypto
+        .createHash('sha256')
+        .update(itemCode + SECRET)
+        .digest('hex')
+        .slice(0, 8);
+
+    return `${itemCode}|${hash}`;
+}
+
+// 🖼️ BRAND IMAGE
+async function brandImage(inputPath, itemCode) {
+
+    const qrText = generateQR(itemCode);
+
+    const qrBuffer = await QRCode.toBuffer(qrText, { width: 180 });
+
+    const outputPath = inputPath.replace(".jpg", "_final.jpg");
+
+    const image = sharp(inputPath);
+    const meta = await image.metadata();
+
+    await image
+        .composite([
+            {
+                input: qrBuffer,
+                top: meta.height - 200,
+                left: meta.width - 200
+            }
+        ])
+        .toFile(outputPath);
+
+    return outputPath;
+}
+
 // BOT LOGIC
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
@@ -28,6 +69,7 @@ bot.on('message', async (msg) => {
 
     if (!users[chatId]) users[chatId] = { auth: false };
 
+    // AUTH
     if (!users[chatId].auth) {
         if (text === PASSWORD) {
             users[chatId].auth = true;
@@ -37,6 +79,7 @@ bot.on('message', async (msg) => {
         }
     }
 
+    // IMAGE FLOW
     if (msg.photo) {
         try {
             await bot.sendMessage(chatId, "Processing image...");
@@ -48,28 +91,41 @@ bot.on('message', async (msg) => {
             const fileName = `image_${Date.now()}.jpg`;
             const filePath = path.join(__dirname, fileName);
 
-            const response = await axios({ url: fileUrl, method: 'GET', responseType: 'stream' });
+            const response = await axios({
+                url: fileUrl,
+                method: 'GET',
+                responseType: 'stream'
+            });
+
             const writer = fs.createWriteStream(filePath);
             response.data.pipe(writer);
 
             writer.on('finish', async () => {
-                await bot.sendMessage(chatId, "Image downloaded ✅");
-                await bot.sendMessage(chatId, "Next: QR detection");
+
+                const itemCode = `UEPL-${Date.now()}`;
+
+                const finalImage = await brandImage(filePath, itemCode);
+
+                await bot.sendPhoto(chatId, finalImage, {
+                    caption: `Item saved ✅\nCode: ${itemCode}`
+                });
+
             });
 
             writer.on('error', async () => {
-                await bot.sendMessage(chatId, "Error downloading image ❌");
+                await bot.sendMessage(chatId, "Download error ❌");
             });
 
         } catch (err) {
             console.log(err);
-            await bot.sendMessage(chatId, "Failed ❌");
+            await bot.sendMessage(chatId, "Processing failed ❌");
         }
         return;
     }
 
+    // ITEM CODE
     if (text && isItemCode(text)) {
-        return bot.sendMessage(chatId, `Fetching ${text} (next step)`);
+        return bot.sendMessage(chatId, `Searching ${text} (next step)`);
     }
 
     return bot.sendMessage(chatId, "Send image or item code.");
@@ -78,22 +134,16 @@ bot.on('message', async (msg) => {
 // HTTP SERVER
 const server = http.createServer((req, res) => {
 
-    // favicon
     if (req.url === "/favicon.ico") {
-        const filePath = path.join(__dirname, "favicon.ico");
-        return fs.createReadStream(filePath).pipe(res);
+        return fs.createReadStream(path.join(__dirname, "favicon.ico")).pipe(res);
     }
 
-    // logo
     if (req.url === "/logo.png") {
-        const filePath = path.join(__dirname, "logo.png");
-        return fs.createReadStream(filePath).pipe(res);
+        return fs.createReadStream(path.join(__dirname, "logo.png")).pipe(res);
     }
 
-    // homepage
     if (req.url === "/") {
-        const filePath = path.join(__dirname, "index.html");
-        return fs.createReadStream(filePath).pipe(res);
+        return fs.createReadStream(path.join(__dirname, "index.html")).pipe(res);
     }
 
     res.writeHead(404);
