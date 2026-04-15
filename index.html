@@ -241,23 +241,20 @@ async function submitAll(){
 
     let final=c.toDataURL("image/jpeg",0.6);
 
-    // ✅ FIXED FETCH (CORS SAFE)
-    let formData = new URLSearchParams();
-
-    formData.append("action","add");
-    formData.append("item", item);
-    formData.append("count", document.getElementById("count"+i).value);
-    formData.append("construction", document.getElementById("construction"+i).value);
-    formData.append("composition", document.getElementById("composition"+i).value);
-    formData.append("weight", document.getElementById("weight"+i).value);
-    formData.append("width", document.getElementById("width"+i).value);
-    formData.append("availability", document.getElementById("availability"+i).value);
-    formData.append("image", final);
-
-    await fetch(API,{
-      method:"POST",
-      body: formData
+    // 🔥 FINAL FIX (GET INSTEAD OF POST)
+    let url = API + "?" + new URLSearchParams({
+      action:"add",
+      item:item,
+      count:document.getElementById("count"+i).value,
+      construction:document.getElementById("construction"+i).value,
+      composition:document.getElementById("composition"+i).value,
+      weight:document.getElementById("weight"+i).value,
+      width:document.getElementById("width"+i).value,
+      availability:document.getElementById("availability"+i).value,
+      image:final
     });
+
+    await fetch(url,{method:"GET"});
 
   }
 
