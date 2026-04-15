@@ -9,41 +9,34 @@
 <style>
 
 :root{
-  --primary:#071a3a;
-  --primary2:#0b2d66;
+  --blue:#071a3a;
+  --blue2:#0b2d66;
   --green:#1fbf6b;
-  --danger:#e63946;
+  --red:#e63946;
   --border:#cfe0ff;
   --bg:#eef4ff;
 }
 
-*{box-sizing:border-box;font-family:Inter;}
-
-body{margin:0;background:var(--bg);}
+body{margin:0;font-family:Inter;background:var(--bg);}
 
 /* HEADER */
 header{
-  background:linear-gradient(135deg,var(--primary),var(--primary2));
+  background:linear-gradient(135deg,var(--blue),var(--blue2));
   color:white;
   padding:14px;
   display:flex;
-  align-items:center;
   gap:10px;
+  align-items:center;
   border-bottom:4px solid var(--green);
 }
 
-header img{height:32px;}
+header img{height:30px;}
 
 .title{font-weight:800;}
 .sub{font-size:11px;color:#cfe0ff;}
 
 /* TABS */
-.tabs{
-  display:flex;
-  gap:10px;
-  padding:10px;
-}
-
+.tabs{display:flex;gap:10px;padding:10px;}
 .tab{
   flex:1;
   text-align:center;
@@ -53,11 +46,7 @@ header img{height:32px;}
   border:1px solid var(--border);
   font-weight:700;
 }
-
-.tab.active{
-  background:var(--primary);
-  color:white;
-}
+.tab.active{background:var(--blue);color:white;}
 
 /* PANEL */
 .panel{
@@ -76,7 +65,7 @@ header img{height:32px;}
 }
 
 th{
-  background:var(--primary);
+  background:var(--blue);
   color:white;
   padding:8px;
 }
@@ -93,30 +82,28 @@ input{
   border:1px solid var(--border);
 }
 
-/* BUTTONS */
+/* BUTTON */
 .btn{
-  margin-top:10px;
   width:100%;
+  margin-top:10px;
   padding:12px;
   border:none;
   border-radius:12px;
   font-weight:800;
 }
-
-.submit{background:var(--danger);color:white;}
+.submit{background:var(--red);color:white;}
 .green{background:var(--green);color:white;}
 
 /* TOOLS */
-.tools{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
-}
-
+.tools{display:flex;gap:10px;margin-bottom:10px;}
 .tools input{flex:1;}
 
-/* HIDE */
 .hide{display:none;}
+
+.thumb{
+  height:40px;
+  border-radius:6px;
+}
 
 </style>
 </head>
@@ -124,7 +111,7 @@ input{
 <body>
 
 <header>
-<img src="/logo.png">
+<img src="logo.png">
 <div>
 <div class="title">UEPL SYSTEM</div>
 <div class="sub">Powered by Offices of Nawnit Nihal</div>
@@ -132,8 +119,8 @@ input{
 </header>
 
 <div class="tabs">
-<div class="tab active" onclick="showEntry()" id="tabEntry">ENTRY</div>
-<div class="tab" onclick="showReport()" id="tabReport">REPORT</div>
+<div class="tab active" id="tabEntry" onclick="showEntry()">ENTRY</div>
+<div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
 </div>
 
 <!-- ENTRY -->
@@ -188,7 +175,7 @@ input{
 
 <script>
 
-const API="YOUR_API_HERE";
+const API="PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
 let rows=[];
 let DATA=[];
@@ -228,7 +215,6 @@ function showReport(){
   report.classList.remove("hide");
   tabReport.classList.add("active");
   tabEntry.classList.remove("active");
-
   loadData();
 }
 
@@ -241,7 +227,9 @@ function loadImg(e,i){
 
 /* SUBMIT */
 async function submitAll(){
+
   for(let i=0;i<10;i++){
+
     let item=document.getElementById("item"+i).value;
     if(!item||!rows[i].image) continue;
 
@@ -263,16 +251,24 @@ async function submitAll(){
     ctx.fillStyle="white";
     ctx.fillText("Offices of Nawnit Nihal",10,c.height-20);
 
-    let final=c.toDataURL("image/jpeg");
+    let final=c.toDataURL("image/jpeg",0.6); // 🔥 compressed
 
     await fetch(API,{
       method:"POST",
+      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({
         action:"add",
         item,
+        count:document.getElementById("count"+i).value,
+        construction:document.getElementById("construction"+i).value,
+        composition:document.getElementById("composition"+i).value,
+        weight:document.getElementById("weight"+i).value,
+        width:document.getElementById("width"+i).value,
+        availability:document.getElementById("availability"+i).value,
         image:final
       })
     });
+
   }
 
   alert("Upload done");
@@ -289,7 +285,7 @@ function loadData(){
 }
 
 function render(data){
-  let body=dataBody;
+  let body=document.getElementById("dataBody");
   body.innerHTML="";
 
   data.forEach(d=>{
@@ -302,7 +298,7 @@ function render(data){
       <td>${d.weight||""}</td>
       <td>${d.width||""}</td>
       <td>${d.availability||""}</td>
-      <td><a href="${d.image}" target="_blank">View</a></td>
+      <td>${d.image ? `<img src="${d.image}" class="thumb">` : ''}</td>
     </tr>`;
   });
 }
