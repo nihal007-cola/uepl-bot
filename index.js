@@ -7,18 +7,16 @@ const http = require('http');
 
 const QRCode = require('qrcode');
 const sharp = require('sharp');
-const crypto = require('crypto');
 const jsQR = require('jsqr');
 const { createCanvas, loadImage } = require('canvas');
 
 // CONFIG
 const PASSWORD = "1234";
 const PORT = process.env.PORT || 3000;
-const SECRET = "UEPL_SECRET_2026";
 const SESSION_DURATION = 30 * 60 * 1000;
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-// BOT INIT SAFE
+// BOT INIT
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: { autoStart: false }
 });
@@ -26,7 +24,6 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 (async () => {
   await bot.deleteWebHook({ drop_pending_updates: true });
   await bot.startPolling();
-  console.log("✅ Bot running");
 })();
 
 const users = {};
@@ -37,16 +34,12 @@ function isItemCode(text) {
   return /^UEPL\d+$/.test(text);
 }
 
+// 🔥 QR = ONLY ITEM CODE
 function generateQR(itemCode) {
-  const hash = crypto
-    .createHash('sha256')
-    .update(itemCode + SECRET)
-    .digest('hex')
-    .slice(0, 8);
-
-  return `${itemCode}|${hash}`;
+  return itemCode;
 }
 
+// QR READ
 async function detectQR(filePath) {
   const img = await loadImage(filePath);
   const canvas = createCanvas(img.width, img.height);
@@ -59,11 +52,10 @@ async function detectQR(filePath) {
   return code ? code.data : null;
 }
 
-// 🔥 BRAND IMAGE (UPDATED — LOGO LEFT, QR RIGHT, CLEAN)
+// 🔥 BRAND IMAGE (LOGO LEFT, QR RIGHT)
 async function brandImage(inputPath, itemCode) {
 
   const qrBuffer = await QRCode.toBuffer(generateQR(itemCode), { width: 140 });
-
   const logoPath = path.join(__dirname, "logo.png");
 
   const base = sharp(inputPath);
@@ -71,7 +63,6 @@ async function brandImage(inputPath, itemCode) {
 
   const padding = 20;
   const strip = 120;
-
   const output = inputPath.replace(".jpg", "_final.jpg");
 
   const canvas = sharp({
@@ -93,7 +84,7 @@ async function brandImage(inputPath, itemCode) {
       left: meta.width - 150
     },
 
-    // LOGO LEFT (SUBTLE)
+    // LOGO LEFT
     {
       input: logoPath,
       top: meta.height + padding + 30,
@@ -106,7 +97,7 @@ async function brandImage(inputPath, itemCode) {
   return output;
 }
 
-// BOT
+// BOT LOGIC
 bot.on('message', async (msg) => {
 
   const chatId = msg.chat.id;
@@ -123,7 +114,7 @@ bot.on('message', async (msg) => {
     user.auth = false;
   }
 
-  // AUTH / VERIFY
+  // AUTH + VERIFY
   if (!user.auth || user.verify) {
 
     if (text === PASSWORD) {
@@ -157,7 +148,7 @@ Code: ${d.code}`);
       return bot.sendMessage(chatId, "Access granted. Send image or item code.");
     }
 
-    return bot.sendMessage(chatId, "GO AWAY BRUV! this is for UEPL use only.");
+    return bot.sendMessage(chatId, "GO AWAY BRUV!");
   }
 
   // ENTRY FLOW
@@ -202,10 +193,9 @@ Code: ${d.code}`);
 
       const itemCode = `UEPL${ITEM_COUNTER++}`;
 
-      // 🔥 CREATE FINAL IMAGE FIRST
       const finalImage = await brandImage(user.imagePath, itemCode);
 
-      // 🔥 SEND TO SHEET (IMPORTANT FIX — send file URL via render)
+      // 🔥 SEND IMAGE URL TO APPS SCRIPT (FOR DRIVE STORAGE)
       const imageUrl = `https://uepl-bot.onrender.com/${path.basename(finalImage)}`;
 
       await axios.post(SHEET_URL, {
@@ -257,8 +247,9 @@ Code: ${d.code}`);
         return bot.sendMessage(chatId, "Item Name?");
       }
 
+      // 🔥 ONLY ITEM CODE FROM QR
       user.verify = true;
-      user.pendingCode = qr.split("|")[0];
+      user.pendingCode = qr;
 
       return bot.sendMessage(chatId, "Verification required. Enter password.");
     });
@@ -301,6 +292,4 @@ const server = http.createServer(async (req, res) => {
   res.end();
 });
 
-server.listen(PORT, () => {
-  console.log("🌐 Server running on port", PORT);
-});
+server.listen(PORT);
