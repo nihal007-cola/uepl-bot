@@ -1,75 +1,332 @@
-function doPost(e) {
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UEPL System</title>
 
-  try {
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("UEPL_DB");
-    if (!sheet) throw new Error("Sheet not found");
+<style>
 
-    const data = JSON.parse(e.postData.contents);
-
-    // 🔥 HANDLE BASE64 IMAGE
-    let base64 = data.image.split(",")[1];
-    let blob = Utilities.newBlob(
-      Utilities.base64Decode(base64),
-      "image/jpeg",
-      data.item + ".jpg"
-    );
-
-    // 🔥 SAVE TO DRIVE
-    let file = DriveApp.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
-
-    let driveUrl = "https://drive.google.com/uc?id=" + file.getId();
-
-    // 🔥 WRITE TO SHEET (MATCH HTML FIELDS)
-    sheet.appendRow([
-      data.item,
-      data.count,
-      data.construction,
-      data.composition,
-      data.weight,
-      data.width,
-      data.availability,
-      driveUrl,
-      new Date()
-    ]);
-
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: "ok" }))
-      .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (err) {
-
-    return ContentService
-      .createTextOutput(JSON.stringify({ error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+:root{
+  --blue:#071a3a;
+  --blue2:#0b2d66;
+  --green:#1fbf6b;
+  --red:#e63946;
+  --border:#cfe0ff;
+  --bg:#eef4ff;
 }
 
+body{margin:0;font-family:Inter;background:var(--bg);}
 
-function doGet(e) {
+/* HEADER */
+header{
+  background:linear-gradient(135deg,var(--blue),var(--blue2));
+  color:white;
+  padding:14px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  border-bottom:4px solid var(--green);
+}
 
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("UEPL_DB");
-  if (!sheet) return ContentService.createTextOutput("SHEET NOT FOUND");
+header img{height:30px;}
 
-  const data = sheet.getDataRange().getValues();
+.title{font-weight:800;}
+.sub{font-size:11px;color:#cfe0ff;}
 
-  let result = [];
+/* TABS */
+.tabs{display:flex;gap:10px;padding:10px;}
+.tab{
+  flex:1;
+  text-align:center;
+  padding:10px;
+  border-radius:999px;
+  background:white;
+  border:1px solid var(--border);
+  font-weight:700;
+}
+.tab.active{background:var(--blue);color:white;}
 
-  for (let i = 1; i < data.length; i++) {
-    result.push({
-      item: data[i][0],
-      count: data[i][1],
-      construction: data[i][2],
-      composition: data[i][3],
-      weight: data[i][4],
-      width: data[i][5],
-      availability: data[i][6],
-      image: data[i][7]
+/* PANEL */
+.panel{
+  margin:10px;
+  background:white;
+  border-radius:14px;
+  border:1px solid var(--border);
+  padding:10px;
+}
+
+/* TABLE */
+.table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+
+th{
+  background:var(--blue);
+  color:white;
+  padding:8px;
+}
+
+td{
+  padding:6px;
+  border-bottom:1px solid #eee;
+}
+
+input{
+  width:100%;
+  padding:6px;
+  border-radius:8px;
+  border:1px solid var(--border);
+}
+
+/* BUTTON */
+.btn{
+  width:100%;
+  margin-top:10px;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  font-weight:800;
+}
+.submit{background:var(--red);color:white;}
+.green{background:var(--green);color:white;}
+
+/* TOOLS */
+.tools{display:flex;gap:10px;margin-bottom:10px;}
+.tools input{flex:1;}
+
+.hide{display:none;}
+
+.thumb{
+  height:40px;
+  border-radius:6px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<img src="logo.png">
+<div>
+<div class="title">UEPL SYSTEM</div>
+<div class="sub">Powered by Offices of Nawnit Nihal</div>
+</div>
+</header>
+
+<div class="tabs">
+<div class="tab active" id="tabEntry" onclick="showEntry()">ENTRY</div>
+<div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
+</div>
+
+<!-- ENTRY -->
+<div id="entry" class="panel">
+
+<table class="table">
+<thead>
+<tr>
+<th>Image</th>
+<th>Item</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+</tr>
+</thead>
+<tbody id="entryBody"></tbody>
+</table>
+
+<button class="btn submit" onclick="submitAll()">🚀 Submit All</button>
+
+</div>
+
+<!-- REPORT -->
+<div id="report" class="panel hide">
+
+<div class="tools">
+<input id="search" placeholder="Search..." onkeyup="filter()">
+<button class="green" onclick="printTable()">Print</button>
+<button class="green" onclick="exportCSV()">Export</button>
+</div>
+
+<table class="table">
+<thead>
+<tr>
+<th>Item Code</th>
+<th>Count</th>
+<th>Construction</th>
+<th>Composition</th>
+<th>Weight</th>
+<th>Width</th>
+<th>Availability</th>
+<th>Image</th>
+</tr>
+</thead>
+<tbody id="dataBody"></tbody>
+</table>
+
+</div>
+
+<script>
+
+const API="PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+
+let rows=[];
+let DATA=[];
+
+/* INIT */
+function init(){
+  let body=document.getElementById("entryBody");
+
+  for(let i=0;i<10;i++){
+    rows[i]={image:""};
+
+    body.innerHTML+=`
+    <tr>
+      <td><input type="file" onchange="loadImg(event,${i})"></td>
+      <td><input id="item${i}"></td>
+      <td><input id="count${i}"></td>
+      <td><input id="construction${i}"></td>
+      <td><input id="composition${i}"></td>
+      <td><input id="weight${i}"></td>
+      <td><input id="width${i}"></td>
+      <td><input id="availability${i}"></td>
+    </tr>`;
+  }
+}
+init();
+
+/* SWITCH */
+function showEntry(){
+  entry.classList.remove("hide");
+  report.classList.add("hide");
+  tabEntry.classList.add("active");
+  tabReport.classList.remove("active");
+}
+
+function showReport(){
+  entry.classList.add("hide");
+  report.classList.remove("hide");
+  tabReport.classList.add("active");
+  tabEntry.classList.remove("active");
+  loadData();
+}
+
+/* IMAGE */
+function loadImg(e,i){
+  let reader=new FileReader();
+  reader.onload=ev=>rows[i].image=ev.target.result;
+  reader.readAsDataURL(e.target.files[0]);
+}
+
+/* SUBMIT */
+async function submitAll(){
+
+  for(let i=0;i<10;i++){
+
+    let item=document.getElementById("item"+i).value;
+    if(!item||!rows[i].image) continue;
+
+    let img=new Image();
+    img.src=rows[i].image;
+    await new Promise(r=>img.onload=r);
+
+    let c=document.createElement("canvas");
+    let ctx=c.getContext("2d");
+
+    c.width=img.width;
+    c.height=img.height;
+
+    ctx.drawImage(img,0,0);
+
+    ctx.fillStyle="black";
+    ctx.fillRect(0,c.height-50,c.width,50);
+
+    ctx.fillStyle="white";
+    ctx.fillText("Offices of Nawnit Nihal",10,c.height-20);
+
+    let final=c.toDataURL("image/jpeg",0.6); // 🔥 compressed
+
+    await fetch(API,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        action:"add",
+        item,
+        count:document.getElementById("count"+i).value,
+        construction:document.getElementById("construction"+i).value,
+        composition:document.getElementById("composition"+i).value,
+        weight:document.getElementById("weight"+i).value,
+        width:document.getElementById("width"+i).value,
+        availability:document.getElementById("availability"+i).value,
+        image:final
+      })
     });
+
   }
 
-  return ContentService
-    .createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+  alert("Upload done");
 }
+
+/* REPORT */
+function loadData(){
+  fetch(API+"?action=get")
+  .then(r=>r.json())
+  .then(d=>{
+    DATA=d;
+    render(DATA);
+  });
+}
+
+function render(data){
+  let body=document.getElementById("dataBody");
+  body.innerHTML="";
+
+  data.forEach(d=>{
+    body.innerHTML+=`
+    <tr>
+      <td>${d.item||""}</td>
+      <td>${d.count||""}</td>
+      <td>${d.construction||""}</td>
+      <td>${d.composition||""}</td>
+      <td>${d.weight||""}</td>
+      <td>${d.width||""}</td>
+      <td>${d.availability||""}</td>
+      <td>${d.image ? `<img src="${d.image}" class="thumb">` : ''}</td>
+    </tr>`;
+  });
+}
+
+/* SEARCH */
+function filter(){
+  let q=search.value.toLowerCase();
+  render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
+}
+
+/* PRINT */
+function printTable(){window.print();}
+
+/* EXPORT */
+function exportCSV(){
+  let csv="Item,Count,Construction\n";
+  DATA.forEach(d=>{
+    csv+=`${d.item},${d.count},${d.construction}\n`;
+  });
+
+  let blob=new Blob([csv]);
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="report.csv";
+  a.click();
+}
+
+</script>
+
+</body>
+</html>
