@@ -3,3 +3,4 @@ pillow
 qrcode
 gspread
 google-auth
+gunicorn
