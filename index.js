@@ -3,7 +3,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const http = require('http');
+const express = require('express');
 
 const QRCode = require('qrcode');
 const sharp = require('sharp');
@@ -17,14 +17,45 @@ const PORT = process.env.PORT || 3000;
 const SESSION_DURATION = 30 * 60 * 1000;
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLZYpvG43iBedT0iJzjZE0gFFbXviQR61KCTzIg4Sp9norCVZQPZH2wUISK5d_dWtL/exec";
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: { autoStart: false }
+// Use webhook instead of polling to avoid conflicts
+const bot = new TelegramBot(process.env.BOT_TOKEN);
+const app = express();
+
+// Set webhook
+const WEBHOOK_URL = process.env.RENDER_EXTERNAL_URL || `https://uepl-bot.onrender.com`;
+bot.setWebHook(`${WEBHOOK_URL}/webhook`);
+
+// Parse JSON bodies
+app.use(express.json());
+
+// Webhook endpoint
+app.post('/webhook', (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-(async () => {
-  await bot.deleteWebHook({ drop_pending_updates: true });
-  await bot.startPolling();
-})();
+// Serve static files
+app.use(express.static(__dirname));
+
+// API endpoint
+app.get('/api/items', async (req, res) => {
+  try {
+    const response = await axios.get(SHEET_URL + "?code=ALL");
+    res.json(response.data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Serve image files
+app.get('/img_*', (req, res) => {
+  const filePath = path.join(__dirname, req.path);
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('Not found');
+  }
+});
 
 const users = {};
 let ITEM_COUNTER = 1;
@@ -38,86 +69,166 @@ function generateQR(itemCode) {
   return itemCode;
 }
 
-// 🔥 OCR STRONG (STICKER ONLY)
+// IMPROVED OCR WITH MULTIPLE PREPROCESSING STRATEGIES
 async function extractText(imagePath) {
+  const strategies = [
+    async () => {
+      // Strategy 1: High contrast + sharpening
+      const processed = imagePath.replace(".jpg", "_v1.jpg");
+      await sharp(imagePath)
+        .grayscale()
+        .linear(1.5, -50)
+        .sharpen()
+        .toFile(processed);
+      const { data: { text } } = await Tesseract.recognize(processed, 'eng', {
+        tessedit_pageseg_mode: '6',
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/:., '
+      });
+      fs.unlinkSync(processed);
+      return text;
+    },
+    async () => {
+      // Strategy 2: Binarization
+      const processed = imagePath.replace(".jpg", "_v2.jpg");
+      await sharp(imagePath)
+        .grayscale()
+        .threshold(128)
+        .toFile(processed);
+      const { data: { text } } = await Tesseract.recognize(processed, 'eng');
+      fs.unlinkSync(processed);
+      return text;
+    },
+    async () => {
+      // Strategy 3: Original but with contrast enhancement
+      const processed = imagePath.replace(".jpg", "_v3.jpg");
+      await sharp(imagePath)
+        .normalize()
+        .modulate({ brightness: 1.2, contrast: 1.3 })
+        .toFile(processed);
+      const { data: { text } } = await Tesseract.recognize(processed, 'eng');
+      fs.unlinkSync(processed);
+      return text;
+    }
+  ];
 
-  const cleanPath = imagePath.replace(".jpg", "_clean.jpg");
+  let bestText = '';
+  for (const strategy of strategies) {
+    try {
+      const text = await strategy();
+      if (text.length > bestText.length) {
+        bestText = text;
+      }
+    } catch (err) {
+      console.error('Strategy failed:', err);
+    }
+  }
 
-  await sharp(imagePath)
-    .grayscale()
-    .normalize()
-    .sharpen()
-    .threshold(140)
-    .toFile(cleanPath);
-
-  const { data: { text } } = await Tesseract.recognize(cleanPath, 'eng');
-
-  return text;
+  return bestText;
 }
 
-// 🔥 PARSER (IMPROVED)
+// IMPROVED PARSER WITH MORE PATTERNS
 function parseText(text) {
-
   text = text.toUpperCase();
-
+  
+  // Clean text
+  text = text.replace(/[^A-Z0-9\s\/\-:]/g, ' ');
+  
   return {
-    name: (text.match(/ITEM\s*NO\.?\s*[:\-]?\s*([A-Z0-9]+)/)||[])[1],
-    gsm: (text.match(/(\d{2,4})\s*GSM/)||[])[1],
-    supplier: (text.match(/([A-Z]+)\s*TEXTILE/)||[])[1],
-    count: (text.match(/(\d+\s*WALES.*?)\n/)||[])[1],
-    width: (text.match(/(\d{2,4}\s*CM)/)||[])[1]
+    name: (text.match(/ITEM\s*NO\.?\s*[:\-]?\s*([A-Z0-9\-\/]+)/) ||
+           text.match(/([A-Z]{2,}[0-9]{2,})/) ||
+           [])[1] || "UNKNOWN",
+    gsm: (text.match(/(\d{2,4})\s*GSM/) ||
+          text.match(/GSM\s*[:\-]?\s*(\d{2,4})/) ||
+          [])[1] || "UNKNOWN",
+    supplier: (text.match(/([A-Z]+)\s*TEXTILE/) ||
+               text.match(/SUPPLIER\s*[:\-]?\s*([A-Z]+)/) ||
+               [])[1] || "UNKNOWN",
+    count: (text.match(/(\d+(?:\s*[Xx]\s*\d+)?)\s*(?:WALES|ENDS|PICKS)/) ||
+            text.match(/COUNT\s*[:\-]?\s*([^\n]+)/) ||
+            [])[1]?.trim() || "",
+    width: (text.match(/(\d{2,4}\s*CM)/) ||
+            text.match(/WIDTH\s*[:\-]?\s*([^\n]+)/) ||
+            [])[1]?.trim() || ""
   };
 }
 
 // QR READ
 async function detectQR(filePath) {
-  const img = await loadImage(filePath);
-  const canvas = createCanvas(img.width, img.height);
-  const ctx = canvas.getContext('2d');
-
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, img.width, img.height);
-
-  const code = jsQR(data.data, img.width, img.height);
-  return code ? code.data : null;
+  try {
+    const img = await loadImage(filePath);
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height);
+    const code = jsQR(data.data, img.width, img.height);
+    return code ? code.data : null;
+  } catch (err) {
+    return null;
+  }
 }
 
-// BRAND IMAGE
+// IMPROVED BRAND IMAGE WITH ERROR HANDLING
 async function brandImage(inputPath, itemCode) {
-
-  const qrBuffer = await QRCode.toBuffer(generateQR(itemCode), { width: 140 });
-  const logoPath = path.join(__dirname, "logo.png");
-
-  const base = sharp(inputPath);
-  const meta = await base.metadata();
-
-  const padding = 20;
-  const strip = 120;
-  const output = inputPath.replace(".jpg", "_final.jpg");
-
-  const canvas = sharp({
-    create: {
-      width: meta.width + padding * 2,
-      height: meta.height + padding * 2 + strip,
-      channels: 3,
-      background: "#ffffff"
+  try {
+    const qrBuffer = await QRCode.toBuffer(generateQR(itemCode), { width: 150, margin: 1 });
+    const logoPath = path.join(__dirname, "logo.png");
+    
+    const base = sharp(inputPath);
+    const meta = await base.metadata();
+    
+    const padding = 20;
+    const stripHeight = 130;
+    const newWidth = meta.width + padding * 2;
+    const newHeight = meta.height + padding * 2 + stripHeight;
+    
+    // Resize QR if needed
+    const qrImage = await sharp(qrBuffer).resize(150, 150).toBuffer();
+    const logoBuffer = fs.existsSync(logoPath) ? await sharp(logoPath).resize(80, 80).toBuffer() : null;
+    
+    // Create white background
+    const output = inputPath.replace(".jpg", "_final.jpg");
+    
+    const compositeOps = [
+      { input: await base.toBuffer(), top: padding, left: padding }
+    ];
+    
+    // Add QR code
+    compositeOps.push({ 
+      input: qrImage, 
+      top: meta.height + padding + 20, 
+      left: newWidth - 170 
+    });
+    
+    // Add logo if exists
+    if (logoBuffer) {
+      compositeOps.push({ 
+        input: logoBuffer, 
+        top: meta.height + padding + 25, 
+        left: padding + 10 
+      });
     }
-  });
-
-  await canvas.composite([
-    { input: await base.toBuffer(), top: padding, left: padding },
-    { input: qrBuffer, top: meta.height + padding + 20, left: meta.width - 150 },
-    { input: logoPath, top: meta.height + padding + 30, left: 20 }
-  ])
-  .jpeg()
-  .toFile(output);
-
-  return output;
+    
+    await sharp({
+      create: {
+        width: newWidth,
+        height: newHeight,
+        channels: 3,
+        background: "#ffffff"
+      }
+    })
+    .composite(compositeOps)
+    .jpeg({ quality: 90 })
+    .toFile(output);
+    
+    return output;
+  } catch (err) {
+    console.error('Brand image error:', err);
+    return inputPath;
+  }
 }
 
 // BOT LOGIC
 bot.on('message', async (msg) => {
-
   const chatId = msg.chat.id;
   const text = msg.text;
 
@@ -127,9 +238,10 @@ bot.on('message', async (msg) => {
 
   const user = users[chatId];
 
-  // SESSION
+  // SESSION CHECK
   if (user.auth && Date.now() - user.time > SESSION_DURATION) {
     user.auth = false;
+    user.fabricImage = null;
   }
 
   // AUTH
@@ -137,115 +249,97 @@ bot.on('message', async (msg) => {
     if (text === PASSWORD) {
       user.auth = true;
       user.time = Date.now();
-      return bot.sendMessage(chatId, "Send fabric image.");
+      return bot.sendMessage(chatId, "✅ Authenticated! Send fabric image first, then sticker image.");
     }
-    return bot.sendMessage(chatId, "GO AWAY BRUV!");
+    return bot.sendMessage(chatId, "🔒 Send password to continue.");
   }
 
   // ITEM CODE ENQUIRY
   if (text && isItemCode(text)) {
-    const res = await axios.get(`${SHEET_URL}?code=${text}`);
-    if (res.data === "NOT_FOUND") {
-      return bot.sendMessage(chatId, "Item not found ❌");
+    try {
+      const res = await axios.get(`${SHEET_URL}?code=${text}`);
+      if (res.data === "NOT_FOUND") {
+        return bot.sendMessage(chatId, "❌ Item not found");
+      }
+      
+      const d = res.data;
+      
+      await bot.sendPhoto(chatId, d.image, {
+        caption: `📦 *Item Details*\n\n*Name:* ${d.name}\n*GSM:* ${d.gsm}\n*Supplier:* ${d.supplier}\n*Code:* ${d.code}`,
+        parse_mode: 'Markdown'
+      });
+    } catch (err) {
+      bot.sendMessage(chatId, "❌ Error fetching item");
     }
-
-    const d = res.data;
-
-    await bot.sendPhoto(chatId, d.image);
-
-    return bot.sendMessage(chatId,
-`Item Details 📦
-
-Item Name: ${d.name}
-GSM: ${d.gsm}
-Supplier: ${d.supplier}
-Code: ${d.code}`);
+    return;
   }
 
   // IMAGE FLOW
   if (msg.photo) {
-
     const photo = msg.photo[msg.photo.length - 1];
-    const file = await bot.getFile(photo.file_id);
-
-    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-    const filePath = path.join(__dirname, `img_${Date.now()}.jpg`);
-
-    const res = await axios({ url, method: 'GET', responseType: 'stream' });
-    const writer = fs.createWriteStream(filePath);
-    res.data.pipe(writer);
-
-    writer.on('finish', async () => {
-
-      // 🔥 FIRST IMAGE = FABRIC
-      if (!user.fabricImage) {
-        user.fabricImage = filePath;
-        return bot.sendMessage(chatId, "Now send sticker image.");
-      }
-
-      // 🔥 SECOND IMAGE = STICKER (OCR HERE)
-      const rawText = await extractText(filePath);
-      const parsed = parseText(rawText);
-
-      const itemCode = `UEPL${ITEM_COUNTER++}`;
-      const finalImage = await brandImage(user.fabricImage, itemCode);
-
-      const imageUrl = `https://uepl-bot.onrender.com/${path.basename(finalImage)}`;
-
-      await axios.post(SHEET_URL, {
-        code: itemCode,
-        name: parsed.name || "UNKNOWN",
-        gsm: parsed.gsm || "UNKNOWN",
-        supplier: parsed.supplier || "UNKNOWN",
-        count: parsed.count || "",
-        stock: parsed.width || "",
-        image: imageUrl
+    
+    try {
+      const file = await bot.getFile(photo.file_id);
+      const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+      const filePath = path.join(__dirname, `img_${Date.now()}.jpg`);
+      
+      const response = await axios({ url, method: 'GET', responseType: 'stream' });
+      const writer = fs.createWriteStream(filePath);
+      response.data.pipe(writer);
+      
+      writer.on('finish', async () => {
+        // FIRST IMAGE = FABRIC
+        if (!user.fabricImage) {
+          user.fabricImage = filePath;
+          return bot.sendMessage(chatId, "📸 Fabric image saved. Now send the *sticker image* with text.", { parse_mode: 'Markdown' });
+        }
+        
+        // SECOND IMAGE = STICKER (OCR)
+        await bot.sendMessage(chatId, "🔍 Processing sticker image... This may take a moment.");
+        
+        const rawText = await extractText(filePath);
+        const parsed = parseText(rawText);
+        
+        const itemCode = `UEPL${ITEM_COUNTER++}`;
+        const finalImage = await brandImage(user.fabricImage, itemCode);
+        
+        // Get public URL
+        const imageUrl = `${WEBHOOK_URL}/${path.basename(finalImage)}`;
+        
+        await axios.post(SHEET_URL, {
+          code: itemCode,
+          name: parsed.name,
+          gsm: parsed.gsm,
+          supplier: parsed.supplier,
+          count: parsed.count,
+          rate: "",
+          stock: parsed.width,
+          image: imageUrl
+        });
+        
+        // Cleanup
+        if (fs.existsSync(user.fabricImage)) fs.unlinkSync(user.fabricImage);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        user.fabricImage = null;
+        
+        await bot.sendPhoto(chatId, finalImage, {
+          caption: `✅ *Saved via OCR*\n\n*Code:* ${itemCode}\n*Name:* ${parsed.name}\n*GSM:* ${parsed.gsm}\n*Supplier:* ${parsed.supplier}\n\n*Raw OCR:*\n\`${rawText.substring(0, 200)}\``,
+          parse_mode: 'Markdown'
+        });
       });
-
-      user.fabricImage = null;
-
-      await bot.sendPhoto(chatId, finalImage, {
-        caption: `Saved via OCR ✅\nCode: ${itemCode}`
-      });
-
-    });
-
+      
+    } catch (err) {
+      console.error('Image processing error:', err);
+      bot.sendMessage(chatId, "❌ Error processing image. Please try again.");
+    }
     return;
   }
-
-  return bot.sendMessage(chatId, "Send fabric image.");
+  
+  bot.sendMessage(chatId, "📱 Send fabric image (first), then sticker image with text (second)");
 });
 
-// SERVER unchanged
-const server = http.createServer(async (req, res) => {
-
-  if (req.url.startsWith("/img_") || req.url.includes("_final.jpg")) {
-    const filePath = path.join(__dirname, req.url);
-    if (fs.existsSync(filePath)) {
-      return fs.createReadStream(filePath).pipe(res);
-    }
-  }
-
-  if (req.url === "/api/items") {
-    const response = await axios.get(SHEET_URL + "?code=ALL");
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify(response.data));
-  }
-
-  if (req.url === "/") {
-    return fs.createReadStream(path.join(__dirname, "index.html")).pipe(res);
-  }
-
-  if (req.url === "/favicon.ico") {
-    return fs.createReadStream(path.join(__dirname, "favicon.ico")).pipe(res);
-  }
-
-  if (req.url === "/logo.png") {
-    return fs.createReadStream(path.join(__dirname, "logo.png")).pipe(res);
-  }
-
-  res.writeHead(404);
-  res.end();
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Webhook URL: ${WEBHOOK_URL}/webhook`);
 });
-
-server.listen(PORT);
