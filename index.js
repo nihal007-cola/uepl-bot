@@ -9,6 +9,7 @@ const QRCode = require('qrcode');
 const sharp = require('sharp');
 const jsQR = require('jsqr');
 const { createCanvas, loadImage } = require('canvas');
+const Tesseract = require('tesseract.js'); // 🔥 OCR
 
 // CONFIG
 const PASSWORD = "1234";
@@ -34,9 +35,23 @@ function isItemCode(text) {
   return /^UEPL\d+$/.test(text);
 }
 
-// 🔥 QR = ONLY ITEM CODE
 function generateQR(itemCode) {
   return itemCode;
+}
+
+// OCR
+async function extractText(imagePath) {
+  const { data: { text } } = await Tesseract.recognize(imagePath, 'eng');
+  return text;
+}
+
+function parseText(text) {
+  return {
+    name: (text.match(/ITEM\s*NO[:\s]*([A-Z0-9]+)/i)||[])[1],
+    gsm: (text.match(/(\d+)\s*GSM/i)||[])[1],
+    width: (text.match(/(\d+)\s*CM/i)||[])[1],
+    supplier: (text.match(/([A-Z]+)\s*TEXTILE/i)||[])[1]
+  };
 }
 
 // QR READ
@@ -52,7 +67,7 @@ async function detectQR(filePath) {
   return code ? code.data : null;
 }
 
-// 🔥 BRAND IMAGE (LOGO LEFT, QR RIGHT)
+// BRAND IMAGE
 async function brandImage(inputPath, itemCode) {
 
   const qrBuffer = await QRCode.toBuffer(generateQR(itemCode), { width: 140 });
@@ -76,20 +91,8 @@ async function brandImage(inputPath, itemCode) {
 
   await canvas.composite([
     { input: await base.toBuffer(), top: padding, left: padding },
-
-    // QR RIGHT
-    {
-      input: qrBuffer,
-      top: meta.height + padding + 20,
-      left: meta.width - 150
-    },
-
-    // LOGO LEFT
-    {
-      input: logoPath,
-      top: meta.height + padding + 30,
-      left: 20
-    }
+    { input: qrBuffer, top: meta.height + padding + 20, left: meta.width - 150 },
+    { input: logoPath, top: meta.height + padding + 30, left: 20 }
   ])
   .jpeg()
   .toFile(output);
@@ -114,7 +117,27 @@ bot.on('message', async (msg) => {
     user.auth = false;
   }
 
-  // AUTH + VERIFY
+  // OCR CONFIRMATION
+  if (user.ocrPending) {
+    if (text.toLowerCase() === "yes") {
+      user.name = user.ocrData.name;
+      user.gsm = user.ocrData.gsm;
+      user.supplier = user.ocrData.supplier;
+
+      user.step = "count";
+      user.ocrPending = false;
+
+      return bot.sendMessage(chatId, "Count & Construction?");
+    }
+
+    if (text.toLowerCase() === "no") {
+      user.ocrPending = false;
+      user.step = "name";
+      return bot.sendMessage(chatId, "Item Name?");
+    }
+  }
+
+  // AUTH
   if (!user.auth || user.verify) {
 
     if (text === PASSWORD) {
@@ -151,7 +174,7 @@ Code: ${d.code}`);
     return bot.sendMessage(chatId, "GO AWAY BRUV!");
   }
 
-  // ENTRY FLOW
+  // ENTRY FLOW (same as before)
   if (user.step) {
 
     user.time = Date.now();
@@ -192,10 +215,8 @@ Code: ${d.code}`);
       user.step = null;
 
       const itemCode = `UEPL${ITEM_COUNTER++}`;
-
       const finalImage = await brandImage(user.imagePath, itemCode);
 
-      // 🔥 SEND IMAGE URL TO APPS SCRIPT (FOR DRIVE STORAGE)
       const imageUrl = `https://uepl-bot.onrender.com/${path.basename(finalImage)}`;
 
       await axios.post(SHEET_URL, {
@@ -242,12 +263,24 @@ Code: ${d.code}`);
       const qr = await detectQR(filePath);
 
       if (!qr) {
-        user.step = "name";
+
+        const rawText = await extractText(filePath);
+        const parsed = parseText(rawText);
+
         user.imagePath = filePath;
-        return bot.sendMessage(chatId, "Item Name?");
+        user.ocrPending = true;
+        user.ocrData = parsed;
+
+        return bot.sendMessage(chatId,
+`Detected 🔍
+
+Item: ${parsed.name || "?"}
+GSM: ${parsed.gsm || "?"}
+Supplier: ${parsed.supplier || "?"}
+
+Type YES to confirm or NO to enter manually`);
       }
 
-      // 🔥 ONLY ITEM CODE FROM QR
       user.verify = true;
       user.pendingCode = qr;
 
@@ -260,7 +293,7 @@ Code: ${d.code}`);
   return bot.sendMessage(chatId, "Send image or item code.");
 });
 
-// SERVER
+// SERVER (unchanged)
 const server = http.createServer(async (req, res) => {
 
   if (req.url.startsWith("/img_") || req.url.includes("_final.jpg")) {
