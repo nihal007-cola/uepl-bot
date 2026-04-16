@@ -8,6 +8,11 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+<!-- Added SheetJS library for Excel/CSV export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<!-- Added FileSaver.js for better file download handling -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
 <style>
 /* ========== ORIGINAL DESKTOP STYLES (unchanged) ========== */
 :root{
@@ -154,6 +159,38 @@ input[type="file"]{
   color:white;
 }
 
+/* NEW: Export buttons container */
+.export-tools {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 120px;
+  background: white;
+  z-index: 9;
+  padding: 8px 0;
+}
+.export-btn {
+  flex: 1;
+  min-width: 70px;
+  background: var(--primary2);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: 0.2s;
+  text-align: center;
+}
+.export-btn.print-btn { background: #2c3e66; }
+.export-btn.excel-btn { background: #1f7b4d; }
+.export-btn.csv-btn { background: #e67e22; }
+.export-btn:hover { opacity: 0.85; transform: scale(0.98); }
+
 .tools{
   display:flex;
   gap:10px;
@@ -209,6 +246,39 @@ input[type="file"]{
   font-weight: 800;
   color: var(--primary);
   font-size: 18px;
+}
+
+/* Camera / Gallery toggle style - mobile friendly */
+.camera-toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cam-gallery-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 40px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: 0.2s;
+  flex: 1;
+  text-align: center;
+}
+.cam-gallery-btn.camera-active {
+  background: var(--accent);
+  color: var(--primary);
+}
+.file-input-hidden {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
 /* ========== MOBILE OVERRIDES (only for screens below 768px) ========== */
@@ -360,6 +430,9 @@ input[type="file"]{
   .tools{
     top: 110px;
   }
+  .export-tools {
+    top: 110px;
+  }
 }
 
 /* Small phone extra polish */
@@ -396,7 +469,7 @@ input[type="file"]{
 <div class="tab" id="tabReport" onclick="showReport()">📊 REPORT</div>
 </div>
 
-<!-- ENTRY PANEL: table structure preserved exactly -->
+<!-- ENTRY PANEL: table structure preserved exactly, with camera/gallery toggle inside each image cell -->
 <div id="entry" class="panel">
 <table class="table" id="entryTable">
 <thead>
@@ -416,10 +489,15 @@ input[type="file"]{
 <button class="btn submit" id="submitBtn">🚀 Submit All</button>
 </div>
 
-<!-- REPORT PANEL: preserved exactly -->
+<!-- REPORT PANEL: added export buttons container -->
 <div id="report" class="panel hide">
 <div class="tools">
 <input id="search" placeholder="🔍 Search by any field..." onkeyup="filter()">
+</div>
+<div class="export-tools">
+<button class="export-btn print-btn" id="printReportBtn">🖨️ PRINT</button>
+<button class="export-btn excel-btn" id="exportExcelBtn">📊 EXCEL</button>
+<button class="export-btn csv-btn" id="exportCsvBtn">📄 CSV</button>
 </div>
 <table class="table">
 <thead>
@@ -439,7 +517,7 @@ input[type="file"]{
 </div>
 
 <script>
-// ========== 1:1 REPLACEMENT - same wiring, same logic, but fixed file reset + mobile labels ==========
+// ========== 1:1 REPLACEMENT - same wiring, same logic, but fixed file reset + mobile labels + Camera toggle per row ==========
 let rows = [];        // stores base64 images per row
 let DATA = [];        // global report data
 
@@ -471,7 +549,55 @@ function setMobileLabelsOnReport() {
   });
 }
 
-// INIT: build exactly 10 rows with improved file preview + reset capability
+// Camera / Gallery: create toggle UI inside each image cell (mobile + desktop friendly)
+function attachCameraGallerySupport(rowIdx) {
+  const previewDiv = document.getElementById(`preview_${rowIdx}`);
+  const fileInput = document.getElementById(`fileInput_${rowIdx}`);
+  if (!fileInput || !previewDiv) return;
+  
+  // avoid duplicate toggle containers
+  if (fileInput.parentNode.querySelector('.camera-toggle-row')) return;
+  
+  const toggleContainer = document.createElement('div');
+  toggleContainer.className = 'camera-toggle-row';
+  
+  const galleryBtn = document.createElement('button');
+  galleryBtn.textContent = '📁 GALLERY';
+  galleryBtn.className = 'cam-gallery-btn';
+  const cameraBtn = document.createElement('button');
+  cameraBtn.textContent = '📸 CAMERA';
+  cameraBtn.className = 'cam-gallery-btn';
+  
+  // For modern mobile: use 'capture' attribute for camera
+  galleryBtn.onclick = (e) => {
+    e.preventDefault();
+    fileInput.removeAttribute('capture');
+    fileInput.accept = "image/*";
+    fileInput.click();
+  };
+  
+  cameraBtn.onclick = (e) => {
+    e.preventDefault();
+    // Request camera directly using 'capture' environment on mobile
+    fileInput.setAttribute('capture', 'environment');
+    fileInput.accept = "image/*";
+    fileInput.click();
+    // revert capture after a short delay to not interfere with future gallery usage
+    setTimeout(() => {
+      if(fileInput.hasAttribute('capture')) {
+        // keep for next camera click? but we remove after to keep gallery default
+        fileInput.removeAttribute('capture');
+      }
+    }, 500);
+  };
+  
+  toggleContainer.appendChild(galleryBtn);
+  toggleContainer.appendChild(cameraBtn);
+  // insert after the file input but before preview
+  fileInput.parentNode.insertBefore(toggleContainer, previewDiv);
+}
+
+// INIT: build exactly 10 rows with improved file preview + reset capability + camera/gallery
 function init() {
   let body = document.getElementById("entryBody");
   body.innerHTML = "";
@@ -482,7 +608,7 @@ function init() {
     
     let tr = document.createElement("tr");
     
-    // Column 0: Image (file input + preview)
+    // Column 0: Image (file input + preview + camera/gallery toggle)
     let tdImage = document.createElement("td");
     let fileInput = document.createElement("input");
     fileInput.type = "file";
@@ -550,6 +676,8 @@ function init() {
     tr.appendChild(tdAvail);
     
     body.appendChild(tr);
+    // Attach camera/gallery toggle after DOM ready
+    attachCameraGallerySupport(i);
   }
   setMobileLabelsOnEntry();
 }
@@ -739,6 +867,107 @@ function filter() {
   setMobileLabelsOnReport();
 }
 
+// ---------- EXPORT & PRINT FUNCTIONS ----------
+function getExportData() {
+  // Use currently visible filtered data (what's rendered)
+  let currentData = DATA;
+  let searchVal = document.getElementById("search").value.toLowerCase();
+  if (searchVal.trim() !== "") {
+    currentData = DATA.filter(d => JSON.stringify(d).toLowerCase().includes(searchVal));
+  }
+  return currentData;
+}
+
+function printReport() {
+  const dataToPrint = getExportData();
+  if (!dataToPrint.length) {
+    alert("No data to print.");
+    return;
+  }
+  let printWindow = window.open('', '_blank');
+  let htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>UEPL Swatch Report</title>
+    <style>
+      body { font-family: Inter, sans-serif; margin: 20px; }
+      h2 { color: #071a3a; }
+      table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+      th { background: #071a3a; color: white; padding: 8px; text-align: left; }
+      td { border: 1px solid #ccc; padding: 8px; }
+      img { max-width: 60px; height: auto; }
+      @media print {
+        body { margin: 0; }
+        .page-break { page-break-before: always; }
+      }
+    </style>
+    </head>
+    <body>
+    <h2>UEPL SWATCH REPORT</h2>
+    <table>
+      <thead><tr><th>Item Code</th><th>Count</th><th>Construction</th><th>Composition</th><th>Weight</th><th>Width</th><th>Availability</th><th>Image</th></tr></thead>
+      <tbody>
+  `;
+  dataToPrint.forEach(d => {
+    htmlContent += `<tr>
+      <td>${escapeHtml(d.item || '')}</td>
+      <td>${escapeHtml(d.count || '')}</td>
+      <td>${escapeHtml(d.construction || '')}</td>
+      <td>${escapeHtml(d.composition || '')}</td>
+      <td>${escapeHtml(d.weight || '')}</td>
+      <td>${escapeHtml(d.width || '')}</td>
+      <td>${escapeHtml(d.availability || '')}</td>
+      <td>${d.image ? `<img src="${d.image}" width="50" />` : '—'}</td>
+    </tr>`;
+  });
+  htmlContent += `</tbody></table></body></html>`;
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+  printWindow.print();
+}
+
+function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+function exportToExcel() {
+  const data = getExportData();
+  if (!data.length) { alert("No data to export."); return; }
+  const sheetData = data.map(d => ({
+    "Item Code": d.item || '',
+    "Count": d.count || '',
+    "Construction": d.construction || '',
+    "Composition": d.composition || '',
+    "Weight": d.weight || '',
+    "Width": d.width || '',
+    "Availability": d.availability || '',
+    "Image_URL": d.image ? "(image embedded)" : ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(sheetData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "SwatchReport");
+  XLSX.writeFile(wb, `UEPL_Swatch_Report_${new Date().toISOString().slice(0,19)}.xlsx`);
+}
+
+function exportToCSV() {
+  const data = getExportData();
+  if (!data.length) { alert("No data to export."); return; }
+  const headers = ["Item Code","Count","Construction","Composition","Weight","Width","Availability","Image"];
+  const csvRows = [headers];
+  for (const d of data) {
+    csvRows.push([
+      `"${(d.item || '').replace(/"/g, '""')}"`,
+      `"${(d.count || '').replace(/"/g, '""')}"`,
+      `"${(d.construction || '').replace(/"/g, '""')}"`,
+      `"${(d.composition || '').replace(/"/g, '""')}"`,
+      `"${(d.weight || '').replace(/"/g, '""')}"`,
+      `"${(d.width || '').replace(/"/g, '""')}"`,
+      `"${(d.availability || '').replace(/"/g, '""')}"`,
+      `"image_data"`
+    ]);
+  }
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  saveAs(blob, `UEPL_Swatch_${new Date().toISOString().slice(0,19)}.csv`);
+}
+
 // show ENTRY panel
 function showEntry() {
   document.getElementById("entry").classList.remove("hide");
@@ -765,6 +994,11 @@ document.addEventListener("DOMContentLoaded", () => {
   submitBtn.parentNode.replaceChild(newBtn, submitBtn);
   newBtn.addEventListener("click", submitAll);
   setMobileLabelsOnEntry();
+  
+  // Attach export event listeners
+  document.getElementById("printReportBtn").addEventListener("click", printReport);
+  document.getElementById("exportExcelBtn").addEventListener("click", exportToExcel);
+  document.getElementById("exportCsvBtn").addEventListener("click", exportToCSV);
 });
 
 // Handle logo error
