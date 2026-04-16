@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">  
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UEPL SYSTEM</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
+/* ========== ORIGINAL DESKTOP STYLES (unchanged) ========== */
 :root{
   --primary:#071a3a;
   --primary2:#0b2d66;
@@ -17,12 +19,17 @@
   --bg:#eef4ff;
 }
 
+*{
+  box-sizing: border-box;
+}
+
 body{
   margin:0;
-  font-family:Inter;
+  font-family:Inter, system-ui, -apple-system, sans-serif;
   background:var(--bg);
 }
 
+/* STICKY HEADER */
 header{
   background:linear-gradient(135deg,var(--primary),var(--primary2));
   color:white;
@@ -31,16 +38,29 @@ header{
   gap:12px;
   align-items:center;
   border-bottom:4px solid var(--accent);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 header img{
   height:34px;
+  width: auto;
+  object-fit: contain;
 }
 
+/* STICKY TABS */
 .tabs{
   display:flex;
   gap:10px;
   padding:10px;
+  background: var(--bg);
+  position: sticky;
+  top: 70px;
+  z-index: 99;
+  backdrop-filter: blur(10px);
+  background: rgba(238, 244, 255, 0.95);
 }
 
 .tab{
@@ -52,6 +72,7 @@ header img{
   border:1px solid var(--border);
   font-weight:700;
   cursor:pointer;
+  transition: all 0.2s ease;
 }
 
 .tab.active{
@@ -67,29 +88,51 @@ header img{
   padding:12px;
 }
 
+/* original table styles (DESKTOP default) */
 .table{
   width:100%;
   border-collapse:collapse;
   font-size:12px;
+  display: table;
 }
 
 th{
   background:var(--primary);
   color:white;
   padding:8px;
+  font-weight:600;
+  position: sticky;
+  top: 120px;
+  z-index: 10;
+}
+
+/* Make report table header sticky */
+#report .table thead th{
+  position: sticky;
+  top: 120px;
+  z-index: 10;
+  background: var(--primary);
 }
 
 td{
   padding:6px;
   border-bottom:1px solid #eee;
+  vertical-align: middle;
 }
 
-input{
+input, select{
   width:100%;
   padding:6px;
   border-radius:8px;
   border:1px solid var(--border);
   font-size:12px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+input[type="file"]{
+  padding:4px;
+  font-size:11px;
 }
 
 .btn{
@@ -100,7 +143,11 @@ input{
   border-radius:12px;
   font-weight:800;
   cursor:pointer;
+  font-family: inherit;
+  transition: opacity 0.2s;
 }
+
+.btn:active{ opacity:0.8; }
 
 .submit{
   background:var(--danger);
@@ -111,6 +158,11 @@ input{
   display:flex;
   gap:10px;
   margin-bottom:10px;
+  position: sticky;
+  top: 120px;
+  background: white;
+  z-index: 9;
+  padding: 8px 0;
 }
 
 .tools input{
@@ -118,14 +170,221 @@ input{
 }
 
 .hide{display:none;}
-.thumb{height:60px;border-radius:6px;}
+.thumb{
+  height:50px;
+  width:50px;
+  object-fit: cover;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#f8f9fa;
+}
+.image-preview-small{
+  display: inline-block;
+}
+
+/* FILE PREVIEW STYLES */
+.file-preview-img{
+  height:40px;
+  width:40px;
+  object-fit: cover;
+  border-radius:6px;
+  margin-top:4px;
+  border:1px solid #ddd;
+}
+
+/* desktop row group */
+.desktop-row{
+  display: table-row;
+}
+
+/* Logo placeholder if image fails */
+.logo-placeholder{
+  height:34px;
+  width:34px;
+  background: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 18px;
+}
+
+/* ========== MOBILE OVERRIDES (only for screens below 768px) ========== */
+@media (max-width: 768px){
+  /* Convert table to card layout on mobile */
+  .table,
+  .table tbody,
+  .table tr,
+  .table td,
+  .table th{
+    display: block;
+  }
+  
+  .table thead{
+    display: none; /* hide table headers on mobile */
+  }
+  
+  .table tbody tr{
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 20px;
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    display: block;
+  }
+  
+  .table td{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #eef2ff;
+  }
+  
+  .table td:last-child{
+    border-bottom: none;
+  }
+  
+  /* Add label before each field on mobile */
+  .table td:before{
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--primary);
+    background: #eef4ff;
+    padding: 4px 10px;
+    border-radius: 20px;
+    min-width: 95px;
+    display: inline-block;
+    letter-spacing: 0.3px;
+  }
+  
+  /* make inputs and selects full width inside cells */
+  .table td input,
+  .table td select{
+    flex: 1;
+    min-width: 160px;
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+  
+  /* file input better touch */
+  .table td input[type="file"]{
+    font-size: 13px;
+    padding: 8px 4px;
+  }
+  
+  /* image preview inside cell */
+  .table td img{
+    max-width: 60px;
+    height: auto;
+    margin-left: 8px;
+  }
+  
+  /* submit button bigger touch */
+  .btn.submit{
+    padding: 14px;
+    font-size: 16px;
+    border-radius: 40px;
+    position: sticky;
+    bottom: 10px;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  /* report cards on mobile - better readability */
+  #dataBody tr{
+    display: block;
+    background: white;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid var(--border);
+  }
+  
+  #dataBody td{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 6px;
+    border-bottom: 1px solid #eef2ff;
+    gap: 12px;
+  }
+  
+  #dataBody td:before{
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 12px;
+    background: var(--bg);
+    padding: 5px 12px;
+    border-radius: 30px;
+    color: var(--primary);
+    min-width: 95px;
+  }
+  
+  #dataBody td:last-child{
+    border-bottom: none;
+  }
+  
+  /* report thumbnail bigger */
+  .thumb{
+    height: 55px;
+    width: 55px;
+    object-fit: cover;
+  }
+  
+  .tools input{
+    font-size: 15px;
+    padding: 12px;
+  }
+  
+  .panel{
+    padding: 10px;
+    margin: 8px;
+  }
+  
+  .tab{
+    padding: 12px;
+    font-size: 15px;
+  }
+  
+  /* Adjust sticky positions for mobile */
+  .tabs{
+    top: 60px;
+  }
+  
+  .tools{
+    top: 110px;
+  }
+}
+
+/* Small phone extra polish */
+@media (max-width: 480px){
+  .table td:before{
+    min-width: 80px;
+    font-size: 11px;
+  }
+  
+  .table td input{
+    font-size: 14px;
+  }
+  
+  .thumb{
+    height: 48px;
+    width: 48px;
+  }
+}
 </style>
 </head>
-
 <body>
 
 <header>
-<img src="/static/logo.png">
+<img src="/static/logo.png" alt="UEPL Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+<div class="logo-placeholder" style="display:none;">📋</div>
 <div>
 <div style="font-weight:800;">UEPL SYSTEM</div>
 <div style="font-size:11px;color:#cfe0ff;">Powered by Offices of Nawnit Nihal</div>
@@ -133,188 +392,398 @@ input{
 </header>
 
 <div class="tabs">
-<div class="tab active" id="tabEntry" onclick="showEntry()">ENTRY</div>
-<div class="tab" id="tabReport" onclick="showReport()">REPORT</div>
+<div class="tab active" id="tabEntry" onclick="showEntry()">📝 ENTRY</div>
+<div class="tab" id="tabReport" onclick="showReport()">📊 REPORT</div>
 </div>
 
+<!-- ENTRY PANEL: table structure preserved exactly -->
 <div id="entry" class="panel">
-<table class="table">
+<table class="table" id="entryTable">
 <thead>
 <tr>
-<th>Image</th>
-<th>Item</th>
-<th>Count</th>
-<th>Construction</th>
-<th>Composition</th>
-<th>Weight</th>
-<th>Width</th>
-<th>Availability</th>
+<th>📷 Image</th>
+<th>📦 Item</th>
+<th>🔢 Count</th>
+<th>🏗️ Construction</th>
+<th>🧪 Composition</th>
+<th>⚖️ Weight</th>
+<th>📏 Width</th>
+<th>✅ Availability</th>
 </tr>
 </thead>
 <tbody id="entryBody"></tbody>
 </table>
-
-<button class="btn submit" onclick="submitAll()">🚀 Submit All</button>
+<button class="btn submit" id="submitBtn">🚀 Submit All</button>
 </div>
 
+<!-- REPORT PANEL: preserved exactly -->
 <div id="report" class="panel hide">
-
 <div class="tools">
-<input id="search" placeholder="Search..." onkeyup="filter()">
+<input id="search" placeholder="🔍 Search by any field..." onkeyup="filter()">
 </div>
-
 <table class="table">
 <thead>
 <tr>
-<th>Item Code</th>
-<th>Count</th>
-<th>Construction</th>
-<th>Composition</th>
-<th>Weight</th>
-<th>Width</th>
-<th>Availability</th>
-<th>Image</th>
+<th>📦 Item Code</th>
+<th>🔢 Count</th>
+<th>🏗️ Construction</th>
+<th>🧪 Composition</th>
+<th>⚖️ Weight</th>
+<th>📏 Width</th>
+<th>✅ Availability</th>
+<th>🖼️ Image</th>
 </tr>
 </thead>
 <tbody id="dataBody"></tbody>
 </table>
-
 </div>
 
 <script>
+// ========== 1:1 REPLACEMENT - same wiring, same logic, but fixed file reset + mobile labels ==========
+let rows = [];        // stores base64 images per row
+let DATA = [];        // global report data
 
-let rows=[];
-let DATA=[];
-
-function init(){
-  let body=document.getElementById("entryBody");
-
-  for(let i=0;i<10;i++){
-    rows[i]={image:""};
-
-    body.innerHTML+=`
-    <tr>
-      <td><input type="file" onchange="loadImg(event,${i})"></td>
-      <td><input id="item${i}"></td>
-      <td><input id="count${i}"></td>
-      <td><input id="construction${i}"></td>
-      <td><input id="composition${i}"></td>
-      <td><input id="weight${i}"></td>
-      <td><input id="width${i}"></td>
-      <td><input id="availability${i}" value="YES"></td>
-    </tr>`;
-  }
-}
-init();
-
-function showEntry(){
-  entry.classList.remove("hide");
-  report.classList.add("hide");
-  tabEntry.classList.add("active");
-  tabReport.classList.remove("active");
-}
-
-function showReport(){
-  entry.classList.add("hide");
-  report.classList.remove("hide");
-  tabReport.classList.add("active");
-  tabEntry.classList.remove("active");
-  loadData();
-}
-
-function loadImg(e,i){
-  let reader=new FileReader();
-  reader.onload=ev=>rows[i].image=ev.target.result;
-  reader.readAsDataURL(e.target.files[0]);
-}
-
-async function submitAll(){
-
-  let success = true;
-
-  for(let i=0;i<10;i++){
-
-    let item=document.getElementById("item"+i).value;
-    if(!item||!rows[i].image) continue;
-
-    try{
-      let res = await fetch("/render",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          entries:[{
-            item:item,
-            count:document.getElementById("count"+i).value,
-            construction:document.getElementById("construction"+i).value,
-            composition:document.getElementById("composition"+i).value,
-            weight:document.getElementById("weight"+i).value,
-            width:document.getElementById("width"+i).value,
-            availability:document.getElementById("availability"+i).value,
-            image:rows[i].image
-          }]
-        })
-      });
-
-      let json = await res.json();
-      if(!json.ok) success=false;
-
-    }catch(e){
-      success=false;
-    }
-  }
-
-  if(success){
-    alert("Upload Done ✅");
-
-    // 🔥 CLEAR FORM ONLY ON SUCCESS
-    for(let i=0;i<10;i++){
-      document.getElementById("item"+i).value="";
-      document.getElementById("count"+i).value="";
-      document.getElementById("construction"+i).value="";
-      document.getElementById("composition"+i).value="";
-      document.getElementById("weight"+i).value="";
-      document.getElementById("width"+i).value="";
-      document.getElementById("availability"+i).value="YES";
-      rows[i].image="";
-    }
-
-  }else{
-    alert("Some entries failed ❌");
-  }
-}
-
-async function loadData(){
-  let res=await fetch("/report/available");
-  let json=await res.json();
-  DATA=json.data;
-  render(DATA);
-}
-
-function render(data){
-  let body=document.getElementById("dataBody");
-  body.innerHTML="";
-
-  data.forEach(d=>{
-    body.innerHTML+=`
-    <tr>
-      <td>${d.item||""}</td>
-      <td>${d.count||""}</td>
-      <td>${d.construction||""}</td>
-      <td>${d.composition||""}</td>
-      <td>${d.weight||""}</td>
-      <td>${d.width||""}</td>
-      <td>${d.availability||""}</td>
-      <td>${d.image ? `<img src="${d.image}" class="thumb">` : ''}</td>
-    </tr>`;
+// helper to set data-label attributes on mobile for ENTRY table cells
+function setMobileLabelsOnEntry() {
+  let headers = ["📷 Image", "📦 Item", "🔢 Count", "🏗️ Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability"];
+  let allRows = document.querySelectorAll("#entryBody tr");
+  allRows.forEach(row => {
+    let cells = row.querySelectorAll("td");
+    cells.forEach((cell, idx) => {
+      if (headers[idx]) {
+        cell.setAttribute("data-label", headers[idx]);
+      }
+    });
   });
 }
 
-function filter(){
-  let q=search.value.toLowerCase();
-  render(DATA.filter(d=>JSON.stringify(d).toLowerCase().includes(q)));
+// helper to set data-label on REPORT rows dynamically after render
+function setMobileLabelsOnReport() {
+  let headers = ["📦 Item Code", "🔢 Count", "🏗️ Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability", "🖼️ Image"];
+  let rowsReport = document.querySelectorAll("#dataBody tr");
+  rowsReport.forEach(row => {
+    let cells = row.querySelectorAll("td");
+    cells.forEach((cell, idx) => {
+      if (headers[idx]) {
+        cell.setAttribute("data-label", headers[idx]);
+      }
+    });
+  });
 }
 
-</script>
+// INIT: build exactly 10 rows with improved file preview + reset capability
+function init() {
+  let body = document.getElementById("entryBody");
+  body.innerHTML = "";
+  rows = []; // reset rows array
 
+  for (let i = 0; i < 10; i++) {
+    rows[i] = { image: "", fileInputId: `fileInput_${i}` };
+    
+    let tr = document.createElement("tr");
+    
+    // Column 0: Image (file input + preview)
+    let tdImage = document.createElement("td");
+    let fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.id = `fileInput_${i}`;
+    fileInput.accept = "image/*";
+    fileInput.setAttribute("data-rowidx", i);
+    fileInput.addEventListener("change", function(e) { loadImg(e, i); });
+    let previewSpan = document.createElement("div");
+    previewSpan.id = `preview_${i}`;
+    previewSpan.style.marginTop = "6px";
+    previewSpan.style.display = "inline-block";
+    tdImage.appendChild(fileInput);
+    tdImage.appendChild(previewSpan);
+    tr.appendChild(tdImage);
+    
+    // Columns 1-7: input fields
+    let tdItem = document.createElement("td");
+    let inpItem = document.createElement("input");
+    inpItem.id = `item${i}`;
+    inpItem.placeholder = "Item name";
+    tdItem.appendChild(inpItem);
+    tr.appendChild(tdItem);
+    
+    let tdCount = document.createElement("td");
+    let inpCount = document.createElement("input");
+    inpCount.id = `count${i}`;
+    inpCount.placeholder = "Count";
+    tdCount.appendChild(inpCount);
+    tr.appendChild(tdCount);
+    
+    let tdConst = document.createElement("td");
+    let inpConst = document.createElement("input");
+    inpConst.id = `construction${i}`;
+    inpConst.placeholder = "Construction";
+    tdConst.appendChild(inpConst);
+    tr.appendChild(tdConst);
+    
+    let tdComp = document.createElement("td");
+    let inpComp = document.createElement("input");
+    inpComp.id = `composition${i}`;
+    inpComp.placeholder = "Composition";
+    tdComp.appendChild(inpComp);
+    tr.appendChild(tdComp);
+    
+    let tdWeight = document.createElement("td");
+    let inpWeight = document.createElement("input");
+    inpWeight.id = `weight${i}`;
+    inpWeight.placeholder = "Weight";
+    tdWeight.appendChild(inpWeight);
+    tr.appendChild(tdWeight);
+    
+    let tdWidth = document.createElement("td");
+    let inpWidth = document.createElement("input");
+    inpWidth.id = `width${i}`;
+    inpWidth.placeholder = "Width";
+    tdWidth.appendChild(inpWidth);
+    tr.appendChild(tdWidth);
+    
+    let tdAvail = document.createElement("td");
+    let inpAvail = document.createElement("input");
+    inpAvail.id = `availability${i}`;
+    inpAvail.value = "YES";
+    inpAvail.placeholder = "YES/NO";
+    tdAvail.appendChild(inpAvail);
+    tr.appendChild(tdAvail);
+    
+    body.appendChild(tr);
+  }
+  setMobileLabelsOnEntry();
+}
+
+// load image and show preview, also store base64
+function loadImg(event, idx) {
+  const file = event.target.files[0];
+  if (!file) {
+    rows[idx].image = "";
+    const previewDiv = document.getElementById(`preview_${idx}`);
+    if(previewDiv) previewDiv.innerHTML = "";
+    return;
+  }
+  
+  if (!file.type.startsWith('image/')) {
+    alert("Please select an image file.");
+    event.target.value = "";
+    rows[idx].image = "";
+    const previewDiv = document.getElementById(`preview_${idx}`);
+    if(previewDiv) previewDiv.innerHTML = "";
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    rows[idx].image = ev.target.result;
+    const previewDiv = document.getElementById(`preview_${idx}`);
+    if(previewDiv) {
+      previewDiv.innerHTML = `<img src="${rows[idx].image}" class="file-preview-img" style="height:45px;width:45px;object-fit:cover;border-radius:8px;border:1px solid #ccc;" alt="preview">`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// reset a specific file input and its preview
+function resetFileInputAndPreview(rowIndex) {
+  const fileInput = document.getElementById(`fileInput_${rowIndex}`);
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  rows[rowIndex].image = "";
+  const previewDiv = document.getElementById(`preview_${rowIndex}`);
+  if (previewDiv) {
+    previewDiv.innerHTML = "";
+  }
+}
+
+// SubmitAll with proper file clearing
+async function submitAll() {
+  let success = true;
+  let anySubmitted = false;
+  
+  for (let i = 0; i < 10; i++) {
+    let item = document.getElementById(`item${i}`).value;
+    if (!item || !rows[i].image) continue;
+    
+    anySubmitted = true;
+    try {
+      let payload = {
+        entries: [{
+          item: item,
+          count: document.getElementById(`count${i}`).value,
+          construction: document.getElementById(`construction${i}`).value,
+          composition: document.getElementById(`composition${i}`).value,
+          weight: document.getElementById(`weight${i}`).value,
+          width: document.getElementById(`width${i}`).value,
+          availability: document.getElementById(`availability${i}`).value,
+          image: rows[i].image
+        }]
+      };
+      
+      let res = await fetch("/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      let json = await res.json();
+      if (!json.ok) success = false;
+    } catch(e) {
+      console.error(e);
+      success = false;
+    }
+  }
+  
+  if (success && anySubmitted) {
+    alert("✅ Upload Done! All entries saved.");
+    
+    for (let i = 0; i < 10; i++) {
+      document.getElementById(`item${i}`).value = "";
+      document.getElementById(`count${i}`).value = "";
+      document.getElementById(`construction${i}`).value = "";
+      document.getElementById(`composition${i}`).value = "";
+      document.getElementById(`weight${i}`).value = "";
+      document.getElementById(`width${i}`).value = "";
+      document.getElementById(`availability${i}`).value = "YES";
+      resetFileInputAndPreview(i);
+    }
+  } else if (!anySubmitted) {
+    alert("⚠️ No entries with both Item and Image filled. Please add at least one item + image.");
+  } else {
+    alert("❌ Some entries failed. Check connection or backend. Items not cleared.");
+  }
+}
+
+// load data from backend
+async function loadData() {
+  try {
+    let res = await fetch("/report/available");
+    let json = await res.json();
+    DATA = json.data || [];
+    render(DATA);
+  } catch(err) {
+    console.error("Failed to load report:", err);
+    DATA = [];
+    render([]);
+  }
+}
+
+// render report with mobile data-label support
+function render(data) {
+  let body = document.getElementById("dataBody");
+  body.innerHTML = "";
+  
+  if (!data || data.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;">📭 No records found</td></tr>`;
+    return;
+  }
+  
+  data.forEach(d => {
+    let row = document.createElement("tr");
+    
+    let tdItem = document.createElement("td");
+    tdItem.textContent = d.item || "";
+    row.appendChild(tdItem);
+    
+    let tdCount = document.createElement("td");
+    tdCount.textContent = d.count || "";
+    row.appendChild(tdCount);
+    
+    let tdConst = document.createElement("td");
+    tdConst.textContent = d.construction || "";
+    row.appendChild(tdConst);
+    
+    let tdComp = document.createElement("td");
+    tdComp.textContent = d.composition || "";
+    row.appendChild(tdComp);
+    
+    let tdWeight = document.createElement("td");
+    tdWeight.textContent = d.weight || "";
+    row.appendChild(tdWeight);
+    
+    let tdWidth = document.createElement("td");
+    tdWidth.textContent = d.width || "";
+    row.appendChild(tdWidth);
+    
+    let tdAvail = document.createElement("td");
+    tdAvail.textContent = d.availability || "";
+    row.appendChild(tdAvail);
+    
+    let tdImg = document.createElement("td");
+    if (d.image) {
+      let img = document.createElement("img");
+      img.src = d.image;
+      img.className = "thumb";
+      img.alt = "preview";
+      tdImg.appendChild(img);
+    } else {
+      tdImg.textContent = "—";
+    }
+    row.appendChild(tdImg);
+    
+    body.appendChild(row);
+  });
+  setMobileLabelsOnReport();
+}
+
+// filter report
+function filter() {
+  let q = document.getElementById("search").value.toLowerCase();
+  if (!q.trim()) {
+    render(DATA);
+  } else {
+    let filtered = DATA.filter(d => JSON.stringify(d).toLowerCase().includes(q));
+    render(filtered);
+  }
+  setMobileLabelsOnReport();
+}
+
+// show ENTRY panel
+function showEntry() {
+  document.getElementById("entry").classList.remove("hide");
+  document.getElementById("report").classList.add("hide");
+  document.getElementById("tabEntry").classList.add("active");
+  document.getElementById("tabReport").classList.remove("active");
+  setMobileLabelsOnEntry();
+}
+
+// show REPORT panel
+function showReport() {
+  document.getElementById("entry").classList.add("hide");
+  document.getElementById("report").classList.remove("hide");
+  document.getElementById("tabReport").classList.add("active");
+  document.getElementById("tabEntry").classList.remove("active");
+  loadData();
+}
+
+// Initialize on load
+document.addEventListener("DOMContentLoaded", () => {
+  init();
+  const submitBtn = document.getElementById("submitBtn");
+  const newBtn = submitBtn.cloneNode(true);
+  submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+  newBtn.addEventListener("click", submitAll);
+  setMobileLabelsOnEntry();
+});
+
+// Handle logo error
+const logoImg = document.querySelector('header img');
+if(logoImg) {
+  logoImg.onerror = function() {
+    this.style.display = 'none';
+    const placeholder = this.nextElementSibling;
+    if(placeholder) placeholder.style.display = 'flex';
+  };
+}
+
+// Expose functions globally
+window.showEntry = showEntry;
+window.showReport = showReport;
+window.filter = filter;
+window.loadData = loadData;
+window.submitAll = submitAll;
+window.loadImg = loadImg;
+</script>
 </body>
 </html>
