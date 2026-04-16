@@ -75,9 +75,26 @@ def render():
         # outer border
         draw.rectangle([5,5,W-5,H-5], outline="black", width=2)
 
-        # 🔥 IMAGE AREA (perfect centering)
-        img.thumbnail((W - 2*SIDE_PAD, H - BOTTOM_PANEL - TOP_PAD))
-        canvas.paste(img, ((W - img.width)//2, TOP_PAD))
+        # 🔥 IMAGE AREA (FULL UTILIZATION - FIXED)
+        IMG_AREA_W = W - 2*SIDE_PAD
+        IMG_AREA_H = H - BOTTOM_PANEL - TOP_PAD
+
+        img_ratio = img.width / img.height
+        area_ratio = IMG_AREA_W / IMG_AREA_H
+
+        if img_ratio > area_ratio:
+            new_w = IMG_AREA_W
+            new_h = int(new_w / img_ratio)
+        else:
+            new_h = IMG_AREA_H
+            new_w = int(new_h * img_ratio)
+
+        img_resized = img.resize((new_w, new_h), Image.LANCZOS)
+
+        x = (W - new_w) // 2
+        y = TOP_PAD + (IMG_AREA_H - new_h) // 2
+
+        canvas.paste(img_resized, (x, y))
 
         # 🔥 BOTTOM PANEL LINE
         draw.line([(0, H - BOTTOM_PANEL), (W, H - BOTTOM_PANEL)], fill="black", width=3)
@@ -93,7 +110,7 @@ def render():
             logo.thumbnail((220,220))
             canvas.paste(logo, (40, H - 280), logo)
         except:
-            pass  # fail safe if logo missing
+            pass
 
         # 🔥 TEXT (LEFT BOTTOM)
         draw.text((40, H - 70), "Offices of Nawnit Nihal", fill="black")
