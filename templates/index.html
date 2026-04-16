@@ -403,8 +403,8 @@ input[type="file"]{
 <tr>
 <th>📷 Image</th>
 <th>📦 Item</th>
-<th>🔢 Count</th>
-<th>🏗️ Construction</th>
+<th>🧵 Count</th>
+<th>🪢 Construction</th>
 <th>🧪 Composition</th>
 <th>⚖️ Weight</th>
 <th>📏 Width</th>
@@ -425,8 +425,8 @@ input[type="file"]{
 <thead>
 <tr>
 <th>📦 Item Code</th>
-<th>🔢 Count</th>
-<th>🏗️ Construction</th>
+<th>🧵 Count</th>
+<th>🪢 Construction</th>
 <th>🧪 Composition</th>
 <th>⚖️ Weight</th>
 <th>📏 Width</th>
@@ -445,7 +445,7 @@ let DATA = [];        // global report data
 
 // helper to set data-label attributes on mobile for ENTRY table cells
 function setMobileLabelsOnEntry() {
-  let headers = ["📷 Image", "📦 Item", "🔢 Count", "🏗️ Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability"];
+  let headers = ["📷 Image", "📦 Item", "🧵 Count", "🪢 Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability"];
   let allRows = document.querySelectorAll("#entryBody tr");
   allRows.forEach(row => {
     let cells = row.querySelectorAll("td");
@@ -459,7 +459,7 @@ function setMobileLabelsOnEntry() {
 
 // helper to set data-label on REPORT rows dynamically after render
 function setMobileLabelsOnReport() {
-  let headers = ["📦 Item Code", "🔢 Count", "🏗️ Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability", "🖼️ Image"];
+  let headers = ["📦 Item Code", "🧵 Count", "🪢 Construction", "🧪 Composition", "⚖️ Weight", "📏 Width", "✅ Availability", "🖼️ Image"];
   let rowsReport = document.querySelectorAll("#dataBody tr");
   rowsReport.forEach(row => {
     let cells = row.querySelectorAll("td");
